@@ -28,6 +28,10 @@ export const StairGate: React.FC<StairGateProps> = ({
   const gateRightRef = useRef<THREE.Group>(null);
   const zoneRef = useRef<THREE.Mesh>(null);
 
+  const totalWidth = isExitGate ? 9.0 : 7.0;
+  const halfWidth = totalWidth / 2;
+  const wingWidth = halfWidth - 0.25;
+
   useFrame((_, delta) => {
     // Smooth gate swing open when unlocked
     const targetAngle = isUnlocked ? Math.PI * 0.45 : 0;
@@ -58,105 +62,118 @@ export const StairGate: React.FC<StairGateProps> = ({
 
   return (
     <group position={position}>
-      {/* Outer Metal Frame */}
-      <mesh position={[-2.1, 1.8, 0]}>
-        <boxGeometry args={[0.2, 3.6, 0.2]} />
+      {/* Outer Metal / Stone Pillars */}
+      <mesh position={[-halfWidth, 2.0, 0]}>
+        <boxGeometry args={[0.5, 4.0, 0.5]} />
         <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.3} />
       </mesh>
-      <mesh position={[2.1, 1.8, 0]}>
-        <boxGeometry args={[0.2, 3.6, 0.2]} />
+      <mesh position={[halfWidth, 2.0, 0]}>
+        <boxGeometry args={[0.5, 4.0, 0.5]} />
         <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.3} />
       </mesh>
-      <mesh position={[0, 3.6, 0]}>
-        <boxGeometry args={[4.4, 0.2, 0.2]} />
+      <mesh position={[0, 4.0, 0]}>
+        <boxGeometry args={[totalWidth + 0.5, 0.3, 0.3]} />
         <meshStandardMaterial color="#1e293b" metalness={0.9} roughness={0.3} />
       </mesh>
 
-      {/* Header Sign */}
-      <mesh position={[0, 3.25, 0.02]}>
-        <boxGeometry args={[2.2, 0.4, 0.04]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.8} />
+      {/* Header Sign (EXIT / PINTU TANGGA) */}
+      <mesh position={[0, 3.65, 0.04]}>
+        <boxGeometry args={[isExitGate ? 4.8 : 3.2, 0.5, 0.06]} />
+        <meshStandardMaterial color={isExitGate ? '#15803d' : '#0f172a'} roughness={0.7} />
       </mesh>
+      {/* Illuminated Exit Lamp */}
+      <pointLight
+        position={[0, 3.65, 0.4]}
+        color={isExitGate ? '#4ade80' : '#38bdf8'}
+        intensity={1.2}
+        distance={6}
+      />
 
       {/* Left Gate Wing */}
-      <group ref={gateLeftRef} position={[-2.0, 0, 0]}>
-        <group position={[1.0, 0, 0]}>
+      <group ref={gateLeftRef} position={[-halfWidth + 0.2, 0, 0]}>
+        <group position={[wingWidth / 2, 0, 0]}>
           {/* Top & Bottom Bars */}
           <mesh position={[0, 0.1, 0]}>
-            <boxGeometry args={[2.0, 0.1, 0.08]} />
+            <boxGeometry args={[wingWidth, 0.12, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
-          <mesh position={[0, 2.9, 0]}>
-            <boxGeometry args={[2.0, 0.1, 0.08]} />
+          <mesh position={[0, 3.2, 0]}>
+            <boxGeometry args={[wingWidth, 0.12, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
-          <mesh position={[0, 1.5, 0]}>
-            <boxGeometry args={[2.0, 0.08, 0.08]} />
+          <mesh position={[0, 1.6, 0]}>
+            <boxGeometry args={[wingWidth, 0.08, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
           {/* Vertical Bars */}
-          {[-0.8, -0.5, -0.2, 0.1, 0.4, 0.7].map((x, i) => (
-            <mesh key={`l_bar_${i}`} position={[x, 1.5, 0]}>
-              <cylinderGeometry args={[0.02, 0.02, 2.9, 8]} />
-              <meshStandardMaterial color="#475569" metalness={0.8} />
-            </mesh>
-          ))}
+          {Array.from({ length: Math.floor(wingWidth / 0.32) }).map((_, i) => {
+            const x = -wingWidth / 2 + 0.2 + i * 0.32;
+            return (
+              <mesh key={`l_bar_${i}`} position={[x, 1.6, 0]}>
+                <cylinderGeometry args={[0.022, 0.022, 3.2, 8]} />
+                <meshStandardMaterial color="#475569" metalness={0.8} />
+              </mesh>
+            );
+          })}
         </group>
       </group>
 
       {/* Right Gate Wing */}
-      <group ref={gateRightRef} position={[2.0, 0, 0]}>
-        <group position={[-1.0, 0, 0]}>
+      <group ref={gateRightRef} position={[halfWidth - 0.2, 0, 0]}>
+        <group position={[-wingWidth / 2, 0, 0]}>
           {/* Top & Bottom Bars */}
           <mesh position={[0, 0.1, 0]}>
-            <boxGeometry args={[2.0, 0.1, 0.08]} />
+            <boxGeometry args={[wingWidth, 0.12, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
-          <mesh position={[0, 2.9, 0]}>
-            <boxGeometry args={[2.0, 0.1, 0.08]} />
+          <mesh position={[0, 3.2, 0]}>
+            <boxGeometry args={[wingWidth, 0.12, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
-          <mesh position={[0, 1.5, 0]}>
-            <boxGeometry args={[2.0, 0.08, 0.08]} />
+          <mesh position={[0, 1.6, 0]}>
+            <boxGeometry args={[wingWidth, 0.08, 0.08]} />
             <meshStandardMaterial color="#334155" metalness={0.8} />
           </mesh>
           {/* Vertical Bars */}
-          {[-0.7, -0.4, -0.1, 0.2, 0.5, 0.8].map((x, i) => (
-            <mesh key={`r_bar_${i}`} position={[x, 1.5, 0]}>
-              <cylinderGeometry args={[0.02, 0.02, 2.9, 8]} />
-              <meshStandardMaterial color="#475569" metalness={0.8} />
-            </mesh>
-          ))}
+          {Array.from({ length: Math.floor(wingWidth / 0.32) }).map((_, i) => {
+            const x = -wingWidth / 2 + 0.2 + i * 0.32;
+            return (
+              <mesh key={`r_bar_${i}`} position={[x, 1.6, 0]}>
+                <cylinderGeometry args={[0.022, 0.022, 3.2, 8]} />
+                <meshStandardMaterial color="#475569" metalness={0.8} />
+              </mesh>
+            );
+          })}
         </group>
       </group>
 
       {/* Center Lock Box */}
       {!isUnlocked && (
-        <group position={[0, 1.5, 0.06]}>
+        <group position={[0, 1.6, 0.06]}>
           <mesh>
-            <boxGeometry args={[0.3, 0.4, 0.15]} />
+            <boxGeometry args={[0.35, 0.45, 0.16]} />
             <meshStandardMaterial color="#020617" metalness={0.9} roughness={0.2} />
           </mesh>
           {/* Keyhole / LED Indicator */}
-          <mesh position={[0, 0, 0.08]}>
-            <sphereGeometry args={[0.05, 16, 16]} />
+          <mesh position={[0, 0, 0.09]}>
+            <sphereGeometry args={[0.06, 16, 16]} />
             <meshBasicMaterial color={hasKey ? '#facc15' : '#ef4444'} />
           </mesh>
           <pointLight
             position={[0, 0, 0.2]}
             color={hasKey ? '#facc15' : '#ef4444'}
-            intensity={1.2}
-            distance={2}
+            intensity={1.4}
+            distance={3}
           />
         </group>
       )}
 
       {/* Gathering Zone (Active after gate unlocked) */}
       {isUnlocked && (
-        <group position={[0, 0.02, 2.2]}>
+        <group position={[0, 0.02, 2.5]}>
           {/* Floor pad */}
           <mesh ref={zoneRef} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[3.2, 3.2]} />
+            <planeGeometry args={[isExitGate ? 5.0 : 4.0, isExitGate ? 4.5 : 3.6]} />
             <meshBasicMaterial
               color="#22c55e"
               transparent
@@ -167,23 +184,23 @@ export const StairGate: React.FC<StairGateProps> = ({
 
           {/* Border ring */}
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[1.5, 1.6, 32]} />
+            <ringGeometry args={[1.8, 1.95, 32]} />
             <meshBasicMaterial color="#4ade80" />
           </mesh>
 
           {/* Upward particle cylinder / light beam */}
           <mesh position={[0, 1.2, 0]}>
-            <cylinderGeometry args={[1.5, 1.5, 2.4, 16, 1, true]} />
+            <cylinderGeometry args={[1.8, 1.8, 2.4, 16, 1, true]} />
             <meshBasicMaterial
               color="#22c55e"
               transparent
-              opacity={0.12}
+              opacity={0.15}
               side={THREE.DoubleSide}
               depthWrite={false}
             />
           </mesh>
 
-          <pointLight position={[0, 1.0, 0]} color="#4ade80" intensity={2} distance={5} />
+          <pointLight position={[0, 1.0, 0]} color="#4ade80" intensity={2} distance={6} />
         </group>
       )}
     </group>

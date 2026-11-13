@@ -3,12 +3,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
-import { Key, Flashlight, Volume2, VolumeX, Users, DoorOpen, ShieldAlert } from 'lucide-react';
+import { requestGameFullscreen, exitGameFullscreen } from '../../utils/fullscreen';
+import {
+  Key,
+  Flashlight,
+  Volume2,
+  VolumeX,
+  Users,
+  DoorOpen,
+  ShieldAlert,
+  Maximize,
+  Minimize,
+} from 'lucide-react';
 
 export const HUD: React.FC = () => {
+  const isMapViewer = useGameStore((s) => s.isMapViewer);
   const currentFloor = useGameStore((s) => s.currentFloor);
   const solvedQuestionIds = useGameStore((s) => s.solvedQuestionIds);
   const hasStairKey = useGameStore((s) => s.hasStairKey);
@@ -27,6 +39,35 @@ export const HUD: React.FC = () => {
   const roomCode = useGameStore((s) => s.roomCode);
   const robotState = useGameStore((s) => s.robotState);
 
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(
+        Boolean(
+          document.fullscreenElement ||
+            (document as any).webkitFullscreenElement ||
+            (document as any).mozFullScreenElement ||
+            (document as any).msFullscreenElement
+        )
+      );
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (isFullscreen) {
+      exitGameFullscreen();
+    } else {
+      requestGameFullscreen();
+    }
+  };
+
   // Solved count on current floor
   const floorQuestions = useMemo(() => {
     return PAI_QUESTIONS.filter((q) => q.floor === currentFloor);
@@ -43,8 +84,21 @@ export const HUD: React.FC = () => {
     teammatesOnFloor.filter((tm) => tm.isInGatheringZone).length;
 
   const showGatheringIndicator =
-    (currentFloor > 1 && isGateUnlocked) ||
-    (currentFloor === 1 && isExitGateUnlocked);
+    !isMapViewer &&
+    ((currentFloor > 1 && isGateUnlocked) ||
+      (currentFloor === 1 && isExitGateUnlocked));
+
+  // If map viewer is active, don't show the standard HUD to prevent clutter
+  if (isMapViewer) {
+    return (
+      <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-between p-3 sm:p-5">
+        {/* Center Crosshair */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-3.5 h-3.5 rounded-full border-2 border-white/60 bg-white/20" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-between p-3 sm:p-5">
@@ -55,7 +109,7 @@ export const HUD: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-700/80 text-xs sm:text-sm font-bold text-white shadow-lg flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              {currentFloor > 1 ? `Lantai ${currentFloor}` : 'Lantai 1 & Halaman'}
+              {currentFloor > 1 ? `Lantai ${currentFloor}` : 'Lantai 1 & Halaman Luas'}
             </span>
 
             <span className="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-slate-800 text-[11px] sm:text-xs font-semibold text-slate-300">
@@ -81,14 +135,14 @@ export const HUD: React.FC = () => {
                 </div>
                 <div className="text-[11px] text-slate-400 pt-0.5">
                   {solvedOnFloor < 5 ? (
-                    'Cari meja soal di kelas atau lorong.'
+                    'Cari 5 meja soal di ruang-ruang kelas.'
                   ) : !hasStairKey && !isGateUnlocked ? (
                     <span className="text-amber-400 font-semibold animate-pulse">
-                      ★ Kunci tangga muncul di lorong! Ambil kuncinya.
+                      ★ Kunci tangga muncul di koridor tengah! Ambil kuncinya.
                     </span>
                   ) : !isGateUnlocked ? (
                     <span className="text-amber-300 font-semibold">
-                      Gunakan kunci untuk membuka pintu gerbang tangga.
+                      Gunakan kunci untuk membuka pintu gerbang tangga di ujung koridor.
                     </span>
                   ) : (
                     <span className="text-emerald-400 font-semibold">
@@ -101,18 +155,18 @@ export const HUD: React.FC = () => {
               <div className="space-y-1 text-slate-200">
                 <div className="flex items-center gap-1.5 text-rose-400 font-bold text-xs uppercase tracking-wider">
                   <ShieldAlert size={14} />
-                  <span>Tahap Akhir (Halaman)</span>
+                  <span>Tahap Akhir (Halaman 96m x 96m)</span>
                 </div>
                 <div className="text-[11px] sm:text-xs text-slate-300 leading-snug">
                   {!hasMasterKey ? (
                     'Cari Kunci Gerbang Utama di Pos Satpam halaman sekolah.'
                   ) : !isExitGateUnlocked ? (
                     <span className="text-amber-300 font-semibold">
-                      Bawa Kunci ke Gerbang Utama Sekolah!
+                      Bawa Kunci ke Gerbang Utama Sekolah di ujung halaman!
                     </span>
                   ) : (
                     <span className="text-emerald-400 font-semibold">
-                      Gerbang Utama terbuka! Kumpul di gerbang untuk kabur!
+                      Gerbang Utama terbuka! Kumpul di gerbang untuk lolos!
                     </span>
                   )}
                 </div>
@@ -173,6 +227,15 @@ export const HUD: React.FC = () => {
             title="Suara Game"
           >
             {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={handleToggleFullscreen}
+            className="p-2 rounded-xl border bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white transition shadow-lg cursor-pointer"
+            title={isFullscreen ? 'Keluar Fullscreen' : 'Layar Penuh (Fullscreen)'}
+          >
+            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
           </button>
         </div>
       </div>

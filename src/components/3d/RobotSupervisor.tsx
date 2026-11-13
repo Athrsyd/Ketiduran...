@@ -10,17 +10,18 @@ import { useGameStore } from '../../store/gameStore';
 import { sound } from '../../services/soundEngine';
 import { multiplayerSync } from '../../services/multiplayerSync';
 
-// Floor 1 patrol waypoints across expansive schoolyard and ground hallway
+// Floor 1 patrol waypoints across the expansive 96m x 96m school courtyard
 const PATROL_WAYPOINTS: [number, number][] = [
-  [0, -10],
-  [12, -22],
-  [0, -28],
-  [-12, -34],
-  [16, -40],
-  [4, -48],
-  [-16, -46],
-  [-8, -26],
-  [0, 2],
+  [0, -22],
+  [18, -34],
+  [24, -58],
+  [12, -78],
+  [0, -96],
+  [-16, -82],
+  [-26, -56],
+  [-22, -32],
+  [0, -42],
+  [0, -18],
 ];
 
 export const RobotSupervisor: React.FC = () => {
@@ -34,8 +35,8 @@ export const RobotSupervisor: React.FC = () => {
   // Mutable internal state (NO useState in useFrame!)
   const stateRef = useRef({
     currentWaypointIndex: 0,
-    speed: 3.2,
-    chaseSpeed: 5.4,
+    speed: 3.4,
+    chaseSpeed: 5.6,
     isChasing: false,
     lastAlarmTime: 0,
     syncThrottle: 0,
@@ -83,8 +84,8 @@ export const RobotSupervisor: React.FC = () => {
       }
     }
 
-    // 3. Catch check! If distance < 1.35 -> GAME OVER
-    if (minDistance < 1.35) {
+    // 3. Catch check! If distance < 1.35 and not in map viewer -> GAME OVER
+    if (minDistance < 1.35 && !store.isMapViewer) {
       sound.setRobotAlarm(false);
       store.triggerGameOver('Siswa tertangkap oleh Robot Pengawas Sekolah!');
       multiplayerSync.send({
@@ -102,7 +103,7 @@ export const RobotSupervisor: React.FC = () => {
     let targetZ = 0;
     let shouldChase = false;
 
-    if (nearestPlayer) {
+    if (nearestPlayer && !store.isMapViewer) {
       const dx = nearestPlayer.x - robotPos.x;
       const dz = nearestPlayer.z - robotPos.z;
       const forwardAngle = group.rotation.y;
@@ -110,8 +111,8 @@ export const RobotSupervisor: React.FC = () => {
       let angleDiff = Math.abs(forwardAngle - angleToPlayer);
       while (angleDiff > Math.PI) angleDiff = Math.abs(angleDiff - 2 * Math.PI);
 
-      // Vision cone: within 16m and 60 degrees, OR close proximity < 5m
-      if (minDistance < 5.0 || (minDistance < 16.0 && angleDiff < 0.65)) {
+      // Vision cone: within 18m and 65 degrees, OR close proximity < 5.5m
+      if (minDistance < 5.5 || (minDistance < 18.0 && angleDiff < 0.7)) {
         shouldChase = true;
         targetX = nearestPlayer.x;
         targetZ = nearestPlayer.z;
@@ -133,7 +134,7 @@ export const RobotSupervisor: React.FC = () => {
       targetZ = wp[1];
 
       const toWpDist = Math.hypot(targetX - robotPos.x, targetZ - robotPos.z);
-      if (toWpDist < 1.2) {
+      if (toWpDist < 1.4) {
         s.currentWaypointIndex = (s.currentWaypointIndex + 1) % PATROL_WAYPOINTS.length;
       }
     }
@@ -211,7 +212,7 @@ export const RobotSupervisor: React.FC = () => {
   return (
     <>
       <object3D ref={spotTargetRef} />
-      <group ref={groupRef} position={[0, 0, -18]}>
+      <group ref={groupRef} position={[0, 0, -36]}>
         {/* Track Base / Tank treads */}
         <mesh position={[0, 0.25, 0]}>
           <boxGeometry args={[1.1, 0.45, 1.3]} />
@@ -269,22 +270,22 @@ export const RobotSupervisor: React.FC = () => {
             <meshBasicMaterial color="#ef4444" />
           </mesh>
 
-          {/* Siren light on top */}
+          {/* Siren light on top with rotating beam */}
           <mesh position={[0, 0.32, 0]}>
             <cylinderGeometry args={[0.1, 0.12, 0.18, 12]} />
             <meshBasicMaterial color="#ff0000" />
           </mesh>
-          <pointLight position={[0, 0.4, 0]} color="#ef4444" intensity={2} distance={4} />
+          <pointLight position={[0, 0.4, 0]} color="#ef4444" intensity={2.5} distance={6} />
 
           {/* Forward Red Spotlight */}
           <spotLight
             ref={spotlightRef}
             position={[0, 0.1, 0.3]}
             color="#ff1111"
-            intensity={4}
+            intensity={4.5}
             angle={Math.PI / 5}
             penumbra={0.4}
-            distance={20}
+            distance={22}
           />
         </group>
       </group>

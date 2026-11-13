@@ -63,16 +63,14 @@ export function checkAllPlayersInGatheringZone(
 export function getFloorSpawnPosition(floor: number): [number, number, number] {
   switch (floor) {
     case 4:
-      // Spawns in corridor facing the illuminated classroom doors
-      return [0, 1.6, 4];
     case 3:
-      return [0, 1.6, 4];
     case 2:
-      return [0, 1.6, 4];
+      // Spawns at north end of spacious 88m corridor facing south
+      return [0, 1.6, 10.0];
     case 1:
-      // Ground floor hallway leading to the outdoor school yard
-      return [0, 1.6, 4];
+      // Spawns inside ground floor school entrance lobby facing outdoor yard
+      return [0, 1.6, 10.0];
     default:
-      return [0, 1.6, 4];
+      return [0, 1.6, 10.0];
   }
 }

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { isPointInZone, checkAllPlayersInGatheringZone } from '../../utils/gameLogic';
+import { resolveMovement, getUpperFloorWalls, getFloor1Walls } from '../../utils/collision';
 import { sound } from '../../services/soundEngine';
 import { multiplayerSync } from '../../services/multiplayerSync';
 
@@ -26,6 +27,10 @@ export const PlayerController: React.FC = () => {
   const isPointerLockedRef = useRef<boolean>(false);
   const syncThrottleRef = useRef<number>(0);
 
+  // Flashlight and SpotLight Target Ref
+  const spotTargetRef = useRef<THREE.Object3D>(null);
+  const spotLightRef = useRef<THREE.SpotLight>(null);
+
   // Key event listeners
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -35,6 +40,11 @@ export const PlayerController: React.FC = () => {
       // Interaction key 'E'
       if (e.code === 'KeyE' || e.key.toLowerCase() === 'e') {
         handleInteraction();
+      }
+
+      // Flashlight toggle 'F'
+      if (e.code === 'KeyF' || e.key.toLowerCase() === 'f') {
+        useGameStore.getState().toggleFlashlight();
       }
     };
 
@@ -48,7 +58,7 @@ export const PlayerController: React.FC = () => {
       const store = useGameStore.getState();
       if (store.activeQuestion !== null || store.status !== 'playing') return;
 
-      // STRICT Baldi's Basics: Horizontal (Yaw) only! Pitch is locked to 0!
+      // Horizontal Yaw camera turning
       const sensitivity = 0.0022;
       yawRef.current -= e.movementX * sensitivity;
     };
@@ -65,7 +75,7 @@ export const PlayerController: React.FC = () => {
             gl.domElement.requestPointerLock();
           } catch {}
         } else {
-          // If already locked, clicking also triggers interaction!
+          // If already locked, clicking triggers interaction
           handleInteraction();
         }
       }
@@ -170,10 +180,20 @@ export const PlayerController: React.FC = () => {
     const store = useGameStore.getState();
     if (store.status !== 'playing') return;
 
-    // Freeze player when solving question
+    // Freeze player movement when solving question
     if (store.activeQuestion !== null) return;
 
-    // Apply touch look drag (horizontal yaw only!)
+    // Handle Teleport Target from Map Viewer
+    if (store.teleportTarget) {
+      camera.position.set(
+        store.teleportTarget[0],
+        store.teleportTarget[1],
+        store.teleportTarget[2]
+      );
+      useGameStore.setState({ teleportTarget: null });
+    }
+
+    // Apply touch look drag (horizontal yaw)
     if (store.touchLookDelta.x !== 0) {
       yawRef.current -= store.touchLookDelta.x * 0.0035;
       store.setTouchLook(0, 0); // reset delta
@@ -196,102 +216,137 @@ export const PlayerController: React.FC = () => {
     }
 
     const currentPos = camera.position;
-    const speed = 4.8; // Player speed
+    const isOverview = store.isMapViewer && store.viewerCameraMode === 'overview';
+    const isNoclip = store.isMapViewer && store.viewerNoclip;
+    const speed = isOverview ? 14.0 : isNoclip ? 12.0 : 5.0;
 
-    // MANDATORY REQUIREMENT: directionVector.normalize() for identical diagonal speed!
     if (_moveDir.lengthSq() > 0.001) {
       _moveDir.normalize();
 
-      // Transform direction by current horizontal yaw
-      const cosYaw = Math.cos(yawRef.current);
-      const sinYaw = Math.sin(yawRef.current);
-
-      // Local Z forward is (sinYaw, 0, -cosYaw)
-      _forward.set(-sinYaw, 0, -cosYaw);
-      // Local X right is (cosYaw, 0, sinYaw)
-      _side.set(cosYaw, 0, sinYaw);
-
-      const dx = (_side.x * _moveDir.x + _forward.x * (-_moveDir.z)) * speed * delta;
-      const dz = (_side.z * _moveDir.x + _forward.z * (-_moveDir.z)) * speed * delta;
-
-      // Propose new position
-      const nextX = currentPos.x + dx;
-      const nextZ = currentPos.z + dz;
-
-      // School Wall Collisions per Floor
-      let validX = nextX;
-      let validZ = nextZ;
-
-      if (store.currentFloor > 1) {
-        // Indoor corridor & classrooms boundary
-        // Corridor width is x: -2.6 to 2.6. Classrooms extend to x: -13.8 to 13.8
-        const minZ = store.isGateUnlocked ? -46.0 : -41.2;
-        validZ = Math.max(minZ, Math.min(8.0, nextZ));
-
-        // Lateral walls: if z is in one of the 3 classroom wings, can explore full room width
-        const inClassroom =
-          (validZ >= -3.5 && validZ <= 7.5) ||   // Classrooms 1 & 2
-          (validZ >= -20.5 && validZ <= -9.5) ||  // Classrooms 3 & 4
-          (validZ >= -35.5 && validZ <= -24.5);  // Classroom 5 & Locker Lounge
-
-        const maxX = inClassroom ? 13.8 : 2.5;
-        const minX = inClassroom ? -13.8 : -2.5;
-        validX = Math.max(minX, Math.min(maxX, nextX));
+      if (isOverview) {
+        // Top-down camera: movement is world aligned (W = -Z, S = +Z, A = -X, D = +X)
+        currentPos.x += _moveDir.x * speed * delta;
+        currentPos.z += _moveDir.z * speed * delta;
       } else {
-        // Floor 1 & Expansive School Yard boundaries
-        const minZ = store.isExitGateUnlocked ? -64.0 : -55.0;
-        validZ = Math.max(minZ, Math.min(10.0, nextZ));
-        const maxX = validZ < -8.0 ? 30.5 : 3.0;
-        const minX = validZ < -8.0 ? -30.5 : -3.0;
-        validX = Math.max(minX, Math.min(maxX, nextX));
+        // Transform direction by current horizontal yaw
+        const cosYaw = Math.cos(yawRef.current);
+        const sinYaw = Math.sin(yawRef.current);
+
+        // Forward vector: looking along -Z transformed by yaw
+        _forward.set(-sinYaw, 0, -cosYaw);
+
+        // FIX: BUG 2 - Tombol A dan D terbalik!
+        // Right vector: cross product Forward x Up = (cosYaw, 0, -sinYaw)
+        // Previously was (cosYaw, 0, +sinYaw) which inverted right/left at certain angles!
+        _side.set(cosYaw, 0, -sinYaw);
+
+        const dx = (_side.x * _moveDir.x + _forward.x * (-_moveDir.z)) * speed * delta;
+        const dz = (_side.z * _moveDir.x + _forward.z * (-_moveDir.z)) * speed * delta;
+
+        const targetX = currentPos.x + dx;
+        const targetZ = currentPos.z + dz;
+
+        if (isNoclip) {
+          // In noclip mode, bypass collision completely
+          currentPos.x = targetX;
+          currentPos.z = targetZ;
+        } else {
+          // FIX: BUG 1 - Tembok lorong ke kelas masih bisa menembus!
+          // Use exact AABB wall collision with separate X and Z sliding
+          const playerRadius = 0.35;
+          let walls: ReturnType<typeof getUpperFloorWalls>;
+          let bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+
+          if (store.currentFloor > 1) {
+            walls = getUpperFloorWalls(store.isGateUnlocked);
+            bounds = {
+              minX: -16.0,
+              maxX: 16.0,
+              minZ: store.isGateUnlocked ? -74.0 : -69.8,
+              maxZ: 13.8,
+            };
+          } else {
+            walls = getFloor1Walls(store.isExitGateUnlocked);
+            bounds = {
+              minX: -47.5,
+              maxX: 47.5,
+              minZ: store.isExitGateUnlocked ? -108.0 : -103.5,
+              maxZ: 13.8,
+            };
+          }
+
+          const [validX, validZ] = resolveMovement(
+            currentPos.x,
+            currentPos.z,
+            targetX,
+            targetZ,
+            playerRadius,
+            walls,
+            bounds
+          );
+
+          currentPos.x = validX;
+          currentPos.z = validZ;
+        }
+
+        sound.playFootstep();
       }
-
-      currentPos.x = validX;
-      currentPos.z = validZ;
-
-      sound.playFootstep();
     }
 
-    // STRICT Baldi's Basics camera lock:
-    // Eye height = 1.6m, pitch = 0, roll = 0, yaw = yawRef.current!
-    currentPos.y = 1.6;
-    camera.rotation.set(0, yawRef.current, 0, 'YXZ');
+    // Camera height & rotation
+    if (isOverview) {
+      currentPos.y = 36.0;
+      camera.rotation.set(-Math.PI / 2, 0, 0, 'YXZ');
+    } else {
+      currentPos.y = 1.6;
+      camera.rotation.set(0, yawRef.current, 0, 'YXZ');
+    }
+
+    // Orient Flashlight beam
+    if (spotTargetRef.current && spotLightRef.current) {
+      spotTargetRef.current.position.set(
+        currentPos.x - Math.sin(yawRef.current) * 14,
+        1.2,
+        currentPos.z - Math.cos(yawRef.current) * 14
+      );
+      spotLightRef.current.target = spotTargetRef.current;
+    }
 
     // 2. Check Gathering Zone in front of the gate
     let inZone = false;
     if (store.currentFloor > 1) {
       if (store.isGateUnlocked) {
         inZone = isPointInZone(currentPos.x, currentPos.z, {
-          minX: -2.2,
-          maxX: 2.2,
-          minZ: -41.2,
-          maxZ: -37.8,
+          minX: -3.0,
+          maxX: 3.0,
+          minZ: -69.5,
+          maxZ: -66.0,
         });
       }
     } else {
       if (store.isExitGateUnlocked) {
         inZone = isPointInZone(currentPos.x, currentPos.z, {
-          minX: -3.0,
-          maxX: 3.0,
-          minZ: -55.2,
-          maxZ: -51.8,
+          minX: -4.2,
+          maxX: 4.2,
+          minZ: -103.5,
+          maxZ: -99.5,
         });
       }
     }
 
     // 3. Check proximity to interactables
     let closestInteractable: typeof store.nearbyInteractable = null;
-    let minDist = 3.2;
+    let minDist = 3.4;
 
     if (store.currentFloor > 1) {
-      // Check 5 desks inside the spacious classrooms
+      // Check 5 desks inside the expanded classrooms
       const floorQuestions = PAI_QUESTIONS.filter((q) => q.floor === store.currentFloor);
       const deskPositions = [
-        [-10.9, 0, 3.8],
-        [6.1, 0, 3.8],
-        [-10.9, 0, -13.2],
-        [6.1, 0, -13.2],
-        [-10.9, 0, -28.2],
+        [-11.5, 0, 7.8],
+        [7.5, 0, 7.8],
+        [7.5, 0, -12.2],
+        [-11.5, 0, -32.2],
+        [-11.5, 0, -52.2],
       ];
 
       floorQuestions.forEach((q, idx) => {
@@ -311,11 +366,11 @@ export const PlayerController: React.FC = () => {
         }
       });
 
-      // Check Stair Key
+      // Check Stair Key (spawns in corridor at Z = -44)
       const allSolved = floorQuestions.every((q) => store.solvedQuestionIds.includes(q.id));
       if (allSolved && !store.hasStairKey && !store.isGateUnlocked) {
-        const keyDist = Math.hypot(currentPos.x - 0, currentPos.z - (-36));
-        if (keyDist < 2.5 && keyDist < minDist) {
+        const keyDist = Math.hypot(currentPos.x - 0, currentPos.z - (-44));
+        if (keyDist < 2.8 && keyDist < minDist) {
           minDist = keyDist;
           closestInteractable = {
             type: 'stair_key',
@@ -325,10 +380,10 @@ export const PlayerController: React.FC = () => {
         }
       }
 
-      // Check Stair Gate
+      // Check Stair Gate (Z = -70)
       if (store.hasStairKey && !store.isGateUnlocked) {
-        const gateDist = Math.hypot(currentPos.x - 0, currentPos.z - (-42));
-        if (gateDist < 3.2 && gateDist < minDist) {
+        const gateDist = Math.hypot(currentPos.x - 0, currentPos.z - (-70));
+        if (gateDist < 3.8 && gateDist < minDist) {
           minDist = gateDist;
           closestInteractable = {
             type: 'stair_gate',
@@ -338,10 +393,10 @@ export const PlayerController: React.FC = () => {
         }
       }
     } else {
-      // Floor 1: Check Master Key in Pos Satpam (-18, 0.9, -32)
+      // Floor 1: Check Master Key in Pos Satpam ([-18, 0.9, -56])
       if (!store.hasMasterKey) {
-        const mKeyDist = Math.hypot(currentPos.x - (-18), currentPos.z - (-32));
-        if (mKeyDist < 3.0 && mKeyDist < minDist) {
+        const mKeyDist = Math.hypot(currentPos.x - (-18), currentPos.z - (-56));
+        if (mKeyDist < 3.2 && mKeyDist < minDist) {
           minDist = mKeyDist;
           closestInteractable = {
             type: 'master_key',
@@ -351,10 +406,10 @@ export const PlayerController: React.FC = () => {
         }
       }
 
-      // Floor 1: Check Exit Gate (0, 0, -56)
+      // Floor 1: Check Exit Gate ([0, 0, -104])
       if (store.hasMasterKey && !store.isExitGateUnlocked) {
-        const eGateDist = Math.hypot(currentPos.x - 0, currentPos.z - (-56));
-        if (eGateDist < 3.8 && eGateDist < minDist) {
+        const eGateDist = Math.hypot(currentPos.x - 0, currentPos.z - (-104));
+        if (eGateDist < 4.2 && eGateDist < minDist) {
           minDist = eGateDist;
           closestInteractable = {
             type: 'exit_gate',
@@ -375,32 +430,33 @@ export const PlayerController: React.FC = () => {
     );
 
     // 5. Team Gathering Check:
-    // If gate is unlocked and all required players are in zone, transition!
-    const teammatesOnFloor = Object.values(store.teammates).filter(
-      (tm) => tm.currentFloor === store.currentFloor
-    );
-    const playersInZoneList = [inZone, ...teammatesOnFloor.map((tm) => tm.isInGatheringZone)];
-    const gatherStatus = checkAllPlayersInGatheringZone(playersInZoneList);
+    if (!store.isMapViewer) {
+      const teammatesOnFloor = Object.values(store.teammates).filter(
+        (tm) => tm.currentFloor === store.currentFloor
+      );
+      const playersInZoneList = [inZone, ...teammatesOnFloor.map((tm) => tm.isInGatheringZone)];
+      const gatherStatus = checkAllPlayersInGatheringZone(playersInZoneList);
 
-    if (gatherStatus.allInZone) {
-      if (store.currentFloor > 1 && store.isGateUnlocked) {
-        const nextFloor = store.currentFloor - 1;
-        store.transitionToNextFloor(nextFloor);
-        multiplayerSync.send({
-          type: 'FLOOR_TRANSITION',
-          senderId: store.myId,
-          roomCode: store.roomCode,
-          payload: { floor: nextFloor },
-          timestamp: Date.now(),
-        });
-      } else if (store.currentFloor === 1 && store.isExitGateUnlocked) {
-        store.triggerVictory();
-        multiplayerSync.send({
-          type: 'VICTORY',
-          senderId: store.myId,
-          roomCode: store.roomCode,
-          timestamp: Date.now(),
-        });
+      if (gatherStatus.allInZone) {
+        if (store.currentFloor > 1 && store.isGateUnlocked) {
+          const nextFloor = store.currentFloor - 1;
+          store.transitionToNextFloor(nextFloor);
+          multiplayerSync.send({
+            type: 'FLOOR_TRANSITION',
+            senderId: store.myId,
+            roomCode: store.roomCode,
+            payload: { floor: nextFloor },
+            timestamp: Date.now(),
+          });
+        } else if (store.currentFloor === 1 && store.isExitGateUnlocked) {
+          store.triggerVictory();
+          multiplayerSync.send({
+            type: 'VICTORY',
+            senderId: store.myId,
+            roomCode: store.roomCode,
+            timestamp: Date.now(),
+          });
+        }
       }
     }
 
@@ -422,17 +478,30 @@ export const PlayerController: React.FC = () => {
     }
   });
 
+  const flashlightOn = useGameStore((s) => s.flashlightOn);
+
   return (
     <>
-      {/* Player Flashlight Cone */}
+      <object3D ref={spotTargetRef} />
+
+      {/* Realistic Player Flashlight with Aim Target */}
       <spotLight
-        position={[camera.position.x, 1.6, camera.position.z]}
-        rotation={[0, yawRef.current, 0]}
+        ref={spotLightRef}
+        position={[camera.position.x, 1.55, camera.position.z]}
         color="#ffffff"
-        intensity={useGameStore((s) => s.flashlightOn) ? 2.5 : 0}
-        angle={Math.PI / 4}
-        penumbra={0.3}
-        distance={18}
+        intensity={flashlightOn ? 3.0 : 0}
+        angle={Math.PI / 5}
+        penumbra={0.45}
+        distance={26}
+        decay={2}
+      />
+
+      {/* Subtle Personal Ambient Fill Light around player */}
+      <pointLight
+        position={[camera.position.x, 1.5, camera.position.z]}
+        color="#fef08a"
+        intensity={flashlightOn ? 0.35 : 0.08}
+        distance={5}
       />
     </>
   );

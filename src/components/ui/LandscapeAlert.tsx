@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Smartphone, RotateCw } from 'lucide-react';
+import { Smartphone, RotateCw, Maximize } from 'lucide-react';
+import { requestGameFullscreen } from '../../utils/fullscreen';
 
 export const LandscapeAlert: React.FC = () => {
   const [isPortrait, setIsPortrait] = useState<boolean>(false);
@@ -44,9 +45,17 @@ export const LandscapeAlert: React.FC = () => {
             PUTAR HP ANDA
           </h3>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-            Putar HP Anda ke <strong>Posisi Landscape (Mendatar)</strong> untuk mengontrol kamera Baldi's Basics dan Virtual Joystick dengan nyaman.
+            Putar HP Anda ke <strong>Posisi Landscape (Mendatar)</strong> untuk mengontrol kamera dan Virtual Joystick dengan nyaman.
           </p>
         </div>
+
+        <button
+          onClick={() => requestGameFullscreen()}
+          className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg cursor-pointer transition"
+        >
+          <Maximize size={14} />
+          <span>Layar Penuh (Fullscreen)</span>
+        </button>
 
         <div className="text-[11px] px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
           Orientasi Layar Terdeteksi: Tegak (Portrait)

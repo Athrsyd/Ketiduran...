@@ -9,6 +9,14 @@ import { PAI_QUESTIONS } from '../data/questions';
 import { getFloorSpawnPosition } from '../utils/gameLogic';
 import { sound } from '../services/soundEngine';
 
+export interface MapTransitionPopupData {
+  show: boolean;
+  fromFloor: number;
+  toFloor: number;
+  title: string;
+  desc: string;
+}
+
 export interface GameState {
   status: GameStatus;
   currentFloor: number;
@@ -40,6 +48,15 @@ export interface GameState {
   virtualJoystick: { x: number; y: number; active: boolean };
   touchLookDelta: { x: number; y: number };
 
+  // Map Transition Popup State
+  mapTransitionPopup: MapTransitionPopupData | null;
+
+  // Dedicated Map Test / Preview Route Mode
+  isMapViewer: boolean;
+  viewerCameraMode: 'walk' | 'fly' | 'overview';
+  viewerNoclip: boolean;
+  teleportTarget: [number, number, number] | null;
+
   // Actions
   startSolo: (name: string, color: string) => void;
   joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3) => void;
@@ -64,9 +81,47 @@ export interface GameState {
   setJoystick: (x: number, y: number, active: boolean) => void;
   setTouchLook: (x: number, y: number) => void;
   applyFloorSync: (floor: number, solvedIds: string[], hasKey: boolean, isUnlocked: boolean) => void;
+
+  // Transition & Viewer actions
+  dismissMapTransitionPopup: () => void;
+  setMapViewer: (active: boolean) => void;
+  setViewerFloor: (floor: number) => void;
+  setViewerCameraMode: (mode: 'walk' | 'fly' | 'overview') => void;
+  toggleViewerNoclip: () => void;
+  teleportPlayer: (pos: [number, number, number], yaw?: number) => void;
 }
 
 const generateId = () => 'p_' + Math.random().toString(36).substring(2, 9);
+
+function getFloorTransitionInfo(targetFloor: number): { title: string; desc: string } {
+  switch (targetFloor) {
+    case 4:
+      return {
+        title: 'LANTAI 4 - KORIDOR KELAS XI (TAHAP 1)',
+        desc: 'Kamu terbangun sendirian/bersama teman di Lantai 4. Kerjakan 5 meja soal PAI di ruang-ruang kelas untuk membuka gerbang tangga!',
+      };
+    case 3:
+      return {
+        title: 'LANTAI 3 - KELAS MULTIMEDIA & DAKWAH (TAHAP 2)',
+        desc: 'Berhasil turun ke Lantai 3! Kerjakan 5 soal materi Akhlak & Syiar Islam untuk membuka tangga berikutnya.',
+      };
+    case 2:
+      return {
+        title: 'LANTAI 2 - PUSAT EKONOMI & PERPUSTAKAAN (TAHAP 3)',
+        desc: 'Tinggal satu lantai lagi menuju lantai dasar! Selesaikan 5 soal Fikih Muamalah & Tokoh Pembaru Islam.',
+      };
+    case 1:
+      return {
+        title: 'LANTAI 1 & HALAMAN SEKOLAH LUAS (TAHAP AKHIR)',
+        desc: 'Kamu tiba di lantai dasar & halaman terbuka! Cari Kunci Master di Pos Satpam dan lolos lewat Gerbang Utama! Hati-hati dengan Robot Pengawas!',
+      };
+    default:
+      return {
+        title: `PINDAH KE LANTAI ${targetFloor}`,
+        desc: 'Teruslah menjelajahi area sekolah dan selesaikan misi bersama teman-teman.',
+      };
+  }
+}
 
 export const useGameStore = create<GameState>((set, get) => ({
   status: 'lobby',
@@ -76,7 +131,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   myId: generateId(),
   myName: 'Siswa SMK 1',
   myColor: '#38bdf8', // Sky blue
-  myPosition: [0, 1.6, 4],
+  myPosition: [0, 1.6, 10.0],
   myYaw: 0,
   myIsInGatheringZone: false,
   teammates: {},
@@ -88,7 +143,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   isExitGateUnlocked: false,
   robotState: {
     x: 0,
-    z: -18,
+    z: -36,
     rotation: 0,
     isChasing: false,
     targetPlayerId: null,
@@ -100,9 +155,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   virtualJoystick: { x: 0, y: 0, active: false },
   touchLookDelta: { x: 0, y: 0 },
 
+  mapTransitionPopup: null,
+  isMapViewer: false,
+  viewerCameraMode: 'walk',
+  viewerNoclip: false,
+  teleportTarget: null,
+
   startSolo: (name: string, color: string) => {
     sound.startAmbience();
     const spawnPos = getFloorSpawnPosition(4);
+    const info = getFloorTransitionInfo(4);
     set({
       status: 'playing',
       currentFloor: 4,
@@ -121,12 +183,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       isExitGateUnlocked: false,
       gameOverReason: '',
+      isMapViewer: false,
+      mapTransitionPopup: {
+        show: true,
+        fromFloor: 4,
+        toFloor: 4,
+        title: info.title,
+        desc: info.desc,
+      },
     });
   },
 
   joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3) => {
     sound.startAmbience();
     const spawnPos = getFloorSpawnPosition(4);
+    const info = getFloorTransitionInfo(4);
     set({
       status: 'playing',
       currentFloor: 4,
@@ -145,6 +216,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       isExitGateUnlocked: false,
       gameOverReason: '',
+      isMapViewer: false,
+      mapTransitionPopup: {
+        show: true,
+        fromFloor: 4,
+        toFloor: 4,
+        title: info.title,
+        desc: info.desc,
+      },
     });
   },
 
@@ -219,8 +298,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const next = nextFloorOverride !== undefined ? nextFloorOverride : current - 1;
     if (next < 1) return;
 
-    sound.playInteract();
+    sound.playGateUnlocked();
     const spawnPos = getFloorSpawnPosition(next);
+    const info = getFloorTransitionInfo(next);
+
     set({
       currentFloor: next,
       myPosition: spawnPos,
@@ -228,14 +309,25 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasStairKey: false,
       isGateUnlocked: false,
       activeQuestion: null,
+      mapTransitionPopup: {
+        show: true,
+        fromFloor: current,
+        toFloor: next,
+        title: info.title,
+        desc: info.desc,
+      },
       robotState: {
         x: 0,
-        z: -18,
+        z: -36,
         rotation: 0,
         isChasing: false,
         targetPlayerId: null,
       },
     });
+  },
+
+  dismissMapTransitionPopup: () => {
+    set({ mapTransitionPopup: null });
   },
 
   setRobotState: (update) => {
@@ -265,6 +357,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     sound.setRobotAlarm(false);
     sound.startAmbience();
     const spawnPos = getFloorSpawnPosition(4);
+    const info = getFloorTransitionInfo(4);
     set({
       status: 'playing',
       currentFloor: 4,
@@ -278,9 +371,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       isExitGateUnlocked: false,
       gameOverReason: '',
+      mapTransitionPopup: {
+        show: true,
+        fromFloor: 4,
+        toFloor: 4,
+        title: info.title,
+        desc: info.desc,
+      },
       robotState: {
         x: 0,
-        z: -18,
+        z: -36,
         rotation: 0,
         isChasing: false,
         targetPlayerId: null,
@@ -312,11 +412,81 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   applyFloorSync: (floor, solvedIds, hasKey, isUnlocked) => {
+    const prev = get().currentFloor;
+    const info = getFloorTransitionInfo(floor);
     set({
       currentFloor: floor,
       solvedQuestionIds: solvedIds,
       hasStairKey: hasKey,
       isGateUnlocked: isUnlocked,
+      mapTransitionPopup:
+        prev !== floor
+          ? {
+              show: true,
+              fromFloor: prev,
+              toFloor: floor,
+              title: info.title,
+              desc: info.desc,
+            }
+          : get().mapTransitionPopup,
+    });
+  },
+
+  // Map Viewer Actions
+  setMapViewer: (active) => {
+    if (active) {
+      sound.startAmbience();
+      set({
+        isMapViewer: true,
+        status: 'playing',
+        viewerCameraMode: 'walk',
+        viewerNoclip: false,
+        activeQuestion: null,
+      });
+    } else {
+      set({
+        isMapViewer: false,
+        status: 'lobby',
+        viewerCameraMode: 'walk',
+        viewerNoclip: false,
+      });
+    }
+  },
+
+  setViewerFloor: (floor) => {
+    const spawnPos = getFloorSpawnPosition(floor);
+    const info = getFloorTransitionInfo(floor);
+    set({
+      currentFloor: floor,
+      myPosition: spawnPos,
+      hasStairKey: true,
+      isGateUnlocked: true,
+      hasMasterKey: true,
+      isExitGateUnlocked: true,
+      teleportTarget: spawnPos,
+      mapTransitionPopup: {
+        show: true,
+        fromFloor: floor,
+        toFloor: floor,
+        title: `[TEST MODE] ${info.title}`,
+        desc: `Melihat isi map lantai ${floor}. Kamu dapat bebas menjelajah atau berganti kamera.`,
+      },
+    });
+  },
+
+  setViewerCameraMode: (mode) => {
+    set({ viewerCameraMode: mode });
+  },
+
+  toggleViewerNoclip: () => {
+    set((state) => ({ viewerNoclip: !state.viewerNoclip }));
+  },
+
+  teleportPlayer: (pos, yaw) => {
+    set({
+      myPosition: pos,
+      teleportTarget: pos,
+      myYaw: yaw !== undefined ? yaw : get().myYaw,
     });
   },
 }));

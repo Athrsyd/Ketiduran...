@@ -7,7 +7,20 @@ import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { multiplayerSync } from '../../services/multiplayerSync';
 import { sound } from '../../services/soundEngine';
-import { Moon, Users, User, Play, Sparkles, BookOpen, Smartphone, Laptop, ShieldAlert } from 'lucide-react';
+import { requestGameFullscreen } from '../../utils/fullscreen';
+import {
+  Moon,
+  Users,
+  User,
+  Play,
+  Sparkles,
+  BookOpen,
+  Smartphone,
+  Laptop,
+  ShieldAlert,
+  Compass,
+  Layers,
+} from 'lucide-react';
 
 const AVATAR_COLORS = [
   { label: 'Biru OSIS', value: '#38bdf8' },
@@ -20,6 +33,7 @@ const AVATAR_COLORS = [
 export const LobbyScreen: React.FC = () => {
   const startSolo = useGameStore((s) => s.startSolo);
   const joinRoom = useGameStore((s) => s.joinRoom);
+  const setMapViewer = useGameStore((s) => s.setMapViewer);
 
   const [name, setName] = useState<string>('Siswa SMK');
   const [selectedColor, setSelectedColor] = useState<string>('#38bdf8');
@@ -27,6 +41,8 @@ export const LobbyScreen: React.FC = () => {
   const [roomCode, setRoomCode] = useState<string>('KELAS-11');
 
   const handleStart = () => {
+    // Request automatic fullscreen on mobile when starting
+    requestGameFullscreen();
     sound.playInteract();
     if (playerMode === 1) {
       startSolo(name, selectedColor);
@@ -34,6 +50,12 @@ export const LobbyScreen: React.FC = () => {
       joinRoom(roomCode, name, selectedColor, playerMode);
       multiplayerSync.init(roomCode.trim().toUpperCase() || 'KELAS-11');
     }
+  };
+
+  const handleOpenMapViewer = () => {
+    requestGameFullscreen();
+    sound.playInteract();
+    setMapViewer(true);
   };
 
   return (
@@ -54,7 +76,7 @@ export const LobbyScreen: React.FC = () => {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-            Kamu dan teman-teman ketiduran di ruang kelas Lantai 4 hingga larut malam. Selesaikan 15 teka-teki PAI SMK untuk membuka gerbang tangga, turun ke halaman, dan lolos dari kejaran Robot Pengawas!
+            Kamu dan teman-teman ketiduran di ruang kelas SMK hingga larut malam. Jelajahi map sekolah luas 4 lantai, selesaikan 15 teka-teki PAI SMK untuk membuka gerbang tangga, turun ke halaman, dan lolos dari kejaran Robot Pengawas!
           </p>
         </div>
 
@@ -159,14 +181,26 @@ export const LobbyScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Start Button */}
-        <button
-          onClick={handleStart}
-          className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-base shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition cursor-pointer"
-        >
-          <Play size={20} className="fill-slate-950" />
-          <span>MULAI PETUALANGAN MALAM HARI</span>
-        </button>
+        {/* Start Button & Test Map Button */}
+        <div className="space-y-2.5">
+          <button
+            onClick={handleStart}
+            className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 font-black text-base shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Play size={20} className="fill-slate-950" />
+            <span>MULAI PETUALANGAN MALAM HARI</span>
+          </button>
+
+          {/* Dedicated Map Test Route Button */}
+          <button
+            type="button"
+            onClick={handleOpenMapViewer}
+            className="w-full py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-emerald-400 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
+          >
+            <Layers size={16} />
+            <span>Mode Khusus: Test & Preview Semua Map (Lantai 4 s.d. Lantai 1)</span>
+          </button>
+        </div>
       </div>
     </div>
   );

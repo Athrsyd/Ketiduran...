@@ -7,11 +7,13 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { multiplayerSync } from '../../services/multiplayerSync';
-import { Hand, Key, DoorOpen, HelpCircle } from 'lucide-react';
+import { requestGameFullscreen, exitGameFullscreen } from '../../utils/fullscreen';
+import { Hand, Key, DoorOpen, HelpCircle, Maximize, Minimize } from 'lucide-react';
 
 export const TouchControls: React.FC = () => {
   const activeQuestion = useGameStore((s) => s.activeQuestion);
   const status = useGameStore((s) => s.status);
+  const isMapViewer = useGameStore((s) => s.isMapViewer);
   const setJoystick = useGameStore((s) => s.setJoystick);
   const setTouchLook = useGameStore((s) => s.setTouchLook);
   const nearbyInteractable = useGameStore((s) => s.nearbyInteractable);
@@ -26,6 +28,35 @@ export const TouchControls: React.FC = () => {
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
   const myId = useGameStore((s) => s.myId);
   const roomCode = useGameStore((s) => s.roomCode);
+
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(
+        Boolean(
+          document.fullscreenElement ||
+            (document as any).webkitFullscreenElement ||
+            (document as any).mozFullScreenElement ||
+            (document as any).msFullscreenElement
+        )
+      );
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (isFullscreen) {
+      exitGameFullscreen();
+    } else {
+      requestGameFullscreen();
+    }
+  };
 
   // Joystick touch tracking
   const joystickBaseRef = useRef<HTMLDivElement>(null);
