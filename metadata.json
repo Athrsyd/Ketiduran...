@@ -1,0 +1,6 @@
+{
+  "name": "Ketiduran... - Game 3D Edukatif PAI SMK",
+  "description": "Game petualangan 3D First-Person edukatif bernuansa sekolah malam hari untuk 1-3 siswa SMK dengan kurikulum PAI Kelas 11, teka-teki interaktif, dan kejaran Robot Pengawas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

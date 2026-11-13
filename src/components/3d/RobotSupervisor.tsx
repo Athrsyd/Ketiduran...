@@ -1,0 +1,293 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { useGameStore } from '../../store/gameStore';
+import { sound } from '../../services/soundEngine';
+import { multiplayerSync } from '../../services/multiplayerSync';
+
+// Floor 1 patrol waypoints across expansive schoolyard and ground hallway
+const PATROL_WAYPOINTS: [number, number][] = [
+  [0, -10],
+  [12, -22],
+  [0, -28],
+  [-12, -34],
+  [16, -40],
+  [4, -48],
+  [-16, -46],
+  [-8, -26],
+  [0, 2],
+];
+
+export const RobotSupervisor: React.FC = () => {
+  const groupRef = useRef<THREE.Group>(null);
+  const headRef = useRef<THREE.Group>(null);
+  const eyeLeftRef = useRef<THREE.Mesh>(null);
+  const eyeRightRef = useRef<THREE.Mesh>(null);
+  const spotlightRef = useRef<THREE.SpotLight>(null);
+  const spotTargetRef = useRef<THREE.Object3D>(null);
+
+  // Mutable internal state (NO useState in useFrame!)
+  const stateRef = useRef({
+    currentWaypointIndex: 0,
+    speed: 3.2,
+    chaseSpeed: 5.4,
+    isChasing: false,
+    lastAlarmTime: 0,
+    syncThrottle: 0,
+  });
+
+  useFrame((_, delta) => {
+    const group = groupRef.current;
+    if (!group) return;
+
+    const store = useGameStore.getState();
+    if (store.status !== 'playing' || store.currentFloor !== 1) return;
+
+    const s = stateRef.current;
+    const robotPos = group.position;
+
+    // 1. Gather all player positions on Floor 1
+    const players: { id: string; x: number; z: number }[] = [];
+    players.push({
+      id: store.myId,
+      x: store.myPosition[0],
+      z: store.myPosition[2],
+    });
+
+    Object.values(store.teammates).forEach((tm) => {
+      if (tm.currentFloor === 1) {
+        players.push({
+          id: tm.id,
+          x: tm.position[0],
+          z: tm.position[2],
+        });
+      }
+    });
+
+    // 2. Find nearest player
+    let nearestPlayer: { id: string; x: number; z: number } | null = null;
+    let minDistance = Infinity;
+
+    for (const p of players) {
+      const dx = p.x - robotPos.x;
+      const dz = p.z - robotPos.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestPlayer = p;
+      }
+    }
+
+    // 3. Catch check! If distance < 1.35 -> GAME OVER
+    if (minDistance < 1.35) {
+      sound.setRobotAlarm(false);
+      store.triggerGameOver('Siswa tertangkap oleh Robot Pengawas Sekolah!');
+      multiplayerSync.send({
+        type: 'GAME_OVER',
+        senderId: store.myId,
+        roomCode: store.roomCode,
+        payload: { reason: 'Siswa tertangkap oleh Robot Pengawas Sekolah!' },
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    // 4. Vision & Detection logic
+    let targetX = 0;
+    let targetZ = 0;
+    let shouldChase = false;
+
+    if (nearestPlayer) {
+      const dx = nearestPlayer.x - robotPos.x;
+      const dz = nearestPlayer.z - robotPos.z;
+      const forwardAngle = group.rotation.y;
+      const angleToPlayer = Math.atan2(dx, dz);
+      let angleDiff = Math.abs(forwardAngle - angleToPlayer);
+      while (angleDiff > Math.PI) angleDiff = Math.abs(angleDiff - 2 * Math.PI);
+
+      // Vision cone: within 16m and 60 degrees, OR close proximity < 5m
+      if (minDistance < 5.0 || (minDistance < 16.0 && angleDiff < 0.65)) {
+        shouldChase = true;
+        targetX = nearestPlayer.x;
+        targetZ = nearestPlayer.z;
+      }
+    }
+
+    // 5. Update alarm & chase state
+    if (shouldChase !== s.isChasing) {
+      s.isChasing = shouldChase;
+      sound.setRobotAlarm(shouldChase);
+      store.setRobotState({ isChasing: shouldChase });
+    }
+
+    // 6. Navigation towards target
+    if (!shouldChase) {
+      // Patrol waypoints
+      const wp = PATROL_WAYPOINTS[s.currentWaypointIndex];
+      targetX = wp[0];
+      targetZ = wp[1];
+
+      const toWpDist = Math.hypot(targetX - robotPos.x, targetZ - robotPos.z);
+      if (toWpDist < 1.2) {
+        s.currentWaypointIndex = (s.currentWaypointIndex + 1) % PATROL_WAYPOINTS.length;
+      }
+    }
+
+    // Move robot
+    const moveDx = targetX - robotPos.x;
+    const moveDz = targetZ - robotPos.z;
+    const moveDist = Math.hypot(moveDx, moveDz);
+
+    if (moveDist > 0.1) {
+      const targetAngle = Math.atan2(moveDx, moveDz);
+      group.rotation.y = THREE.MathUtils.damp(group.rotation.y, targetAngle, 5, delta);
+
+      const moveSpeed = (shouldChase ? s.chaseSpeed : s.speed) * delta;
+      const step = Math.min(moveSpeed, moveDist);
+      robotPos.x += (moveDx / moveDist) * step;
+      robotPos.z += (moveDz / moveDist) * step;
+    }
+
+    // Head scanner animation
+    if (headRef.current) {
+      if (shouldChase) {
+        headRef.current.rotation.y = 0;
+      } else {
+        headRef.current.rotation.y = Math.sin(Date.now() * 0.003) * 0.5;
+      }
+    }
+
+    // Eye and spotlight pulsing in chase
+    if (eyeLeftRef.current && eyeRightRef.current) {
+      const eyeMatLeft = eyeLeftRef.current.material as THREE.MeshBasicMaterial;
+      const eyeMatRight = eyeRightRef.current.material as THREE.MeshBasicMaterial;
+      if (eyeMatLeft && eyeMatRight) {
+        if (shouldChase) {
+          const eyeFlicker = Math.sin(Date.now() * 0.02) > 0 ? '#ff0000' : '#ff5555';
+          eyeMatLeft.color.set(eyeFlicker);
+          eyeMatRight.color.set(eyeFlicker);
+        } else {
+          eyeMatLeft.color.set('#f43f5e');
+          eyeMatRight.color.set('#f43f5e');
+        }
+      }
+    }
+
+    // Spotlight direction
+    if (spotlightRef.current && spotTargetRef.current) {
+      const lookDist = shouldChase ? 8 : 6;
+      spotTargetRef.current.position.set(
+        robotPos.x + Math.sin(group.rotation.y) * lookDist,
+        0,
+        robotPos.z + Math.cos(group.rotation.y) * lookDist
+      );
+      spotlightRef.current.target = spotTargetRef.current;
+    }
+
+    // Periodic sync
+    s.syncThrottle += delta;
+    if (s.syncThrottle > 0.25) {
+      s.syncThrottle = 0;
+      multiplayerSync.send({
+        type: 'ROBOT_STATE',
+        senderId: store.myId,
+        roomCode: store.roomCode,
+        payload: {
+          x: robotPos.x,
+          z: robotPos.z,
+          rotation: group.rotation.y,
+          isChasing: shouldChase,
+        },
+        timestamp: Date.now(),
+      });
+    }
+  });
+
+  return (
+    <>
+      <object3D ref={spotTargetRef} />
+      <group ref={groupRef} position={[0, 0, -18]}>
+        {/* Track Base / Tank treads */}
+        <mesh position={[0, 0.25, 0]}>
+          <boxGeometry args={[1.1, 0.45, 1.3]} />
+          <meshStandardMaterial color="#0f172a" metalness={0.9} roughness={0.3} />
+        </mesh>
+        <mesh position={[-0.6, 0.22, 0]}>
+          <boxGeometry args={[0.22, 0.42, 1.35]} />
+          <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.4} />
+        </mesh>
+        <mesh position={[0.6, 0.22, 0]}>
+          <boxGeometry args={[0.22, 0.42, 1.35]} />
+          <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.4} />
+        </mesh>
+
+        {/* Heavy Torso */}
+        <mesh position={[0, 0.95, 0]}>
+          <boxGeometry args={[0.9, 0.9, 0.8]} />
+          <meshStandardMaterial color="#1e293b" metalness={0.7} roughness={0.3} />
+        </mesh>
+
+        {/* Hazard warning stripes on torso */}
+        <mesh position={[0, 0.95, 0.41]}>
+          <planeGeometry args={[0.8, 0.4]} />
+          <meshBasicMaterial color="#eab308" />
+        </mesh>
+        <mesh position={[0, 0.95, 0.42]}>
+          <planeGeometry args={[0.7, 0.3]} />
+          <meshBasicMaterial color="#000000" wireframe />
+        </mesh>
+
+        {/* Mechanical Arms */}
+        <mesh position={[-0.55, 0.95, 0]}>
+          <cylinderGeometry args={[0.08, 0.08, 0.6]} />
+          <meshStandardMaterial color="#475569" metalness={0.8} />
+        </mesh>
+        <mesh position={[0.55, 0.95, 0]}>
+          <cylinderGeometry args={[0.08, 0.08, 0.6]} />
+          <meshStandardMaterial color="#475569" metalness={0.8} />
+        </mesh>
+
+        {/* Swiveling Head */}
+        <group ref={headRef} position={[0, 1.65, 0]}>
+          <mesh>
+            <boxGeometry args={[0.65, 0.45, 0.55]} />
+            <meshStandardMaterial color="#090d16" metalness={0.9} roughness={0.2} />
+          </mesh>
+
+          {/* Glowing Red Sensor Eyes */}
+          <mesh ref={eyeLeftRef} position={[-0.16, 0.02, 0.28]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshBasicMaterial color="#ef4444" />
+          </mesh>
+          <mesh ref={eyeRightRef} position={[0.16, 0.02, 0.28]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshBasicMaterial color="#ef4444" />
+          </mesh>
+
+          {/* Siren light on top */}
+          <mesh position={[0, 0.32, 0]}>
+            <cylinderGeometry args={[0.1, 0.12, 0.18, 12]} />
+            <meshBasicMaterial color="#ff0000" />
+          </mesh>
+          <pointLight position={[0, 0.4, 0]} color="#ef4444" intensity={2} distance={4} />
+
+          {/* Forward Red Spotlight */}
+          <spotLight
+            ref={spotlightRef}
+            position={[0, 0.1, 0.3]}
+            color="#ff1111"
+            intensity={4}
+            angle={Math.PI / 5}
+            penumbra={0.4}
+            distance={20}
+          />
+        </group>
+      </group>
+    </>
+  );
+};
