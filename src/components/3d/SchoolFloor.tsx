@@ -82,15 +82,24 @@ export const SchoolFloor: React.FC = () => {
             <meshStandardMaterial color="#0f172a" roughness={0.9} />
           </mesh>
 
-          {/* Corridor Ceiling Fluorescent Lights every 6m */}
+          {/* Corridor Ceiling Fluorescent Lights (Glowing Emissive Meshes - 0 PointLight lag!) */}
           {[10, 4, -2, -8, -14, -20, -26, -32, -38, -44, -50, -56, -62, -68].map((z, i) => (
-            <group key={`c_light_${i}`} position={[0, 3.72, z]}>
-              <mesh>
-                <boxGeometry args={[1.8, 0.08, 0.35]} />
-                <meshStandardMaterial color="#ffffff" emissive="#e0f2fe" emissiveIntensity={0.85} />
-              </mesh>
-              <pointLight color="#bae6fd" intensity={1.1} distance={10} decay={2} />
-            </group>
+            <mesh key={`c_light_${i}`} position={[0, 3.74, z]}>
+              <boxGeometry args={[1.8, 0.08, 0.35]} />
+              <meshStandardMaterial color="#ffffff" emissive="#e0f2fe" emissiveIntensity={1.2} />
+            </mesh>
+          ))}
+
+          {/* 3 Strategically Placed Soft Downlights for entire 88m corridor */}
+          {[4, -28, -60].map((z, i) => (
+            <pointLight
+              key={`corr_zone_light_${i}`}
+              position={[0, 3.5, z]}
+              color="#bae6fd"
+              intensity={1.2}
+              distance={26}
+              decay={2}
+            />
           ))}
 
           {/* Corridor North Back Wall (Z = 14) */}
@@ -581,7 +590,7 @@ export const SchoolFloor: React.FC = () => {
             />
           )}
 
-          {/* Yard Streetlamps across the expanded 96m yard */}
+          {/* Yard Streetlamps across the expanded 96m yard (Glowing Emissive Globes) */}
           {[-30, 0, 30].map((x) =>
             [-30, -54, -78, -96].map((z) => (
               <group key={`yard_lamp_${x}_${z}`} position={[x, 0, z]}>
@@ -590,13 +599,29 @@ export const SchoolFloor: React.FC = () => {
                   <meshStandardMaterial color="#1e293b" metalness={0.8} />
                 </mesh>
                 <mesh position={[0, 6.5, 0]}>
-                  <sphereGeometry args={[0.26, 12, 12]} />
-                  <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={0.85} />
+                  <sphereGeometry args={[0.26, 8, 8]} />
+                  <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={1.2} />
                 </mesh>
-                <pointLight position={[0, 6.4, 0]} color="#fef08a" intensity={1.8} distance={18} decay={2} />
               </group>
             ))
           )}
+
+          {/* 4 Soft Wide-Radius Area Lights for entire 96m yard (High Performance!) */}
+          {[
+            [-18, -45],
+            [18, -45],
+            [-18, -85],
+            [18, -85],
+          ].map(([lx, lz], i) => (
+            <pointLight
+              key={`yard_quad_light_${i}`}
+              position={[lx, 6.5, lz]}
+              color="#fef08a"
+              intensity={1.6}
+              distance={38}
+              decay={2}
+            />
+          ))}
 
           {/* Lush Low-poly Trees dotted around courtyard */}
           {[

@@ -15,6 +15,7 @@ import { VictoryModal } from './components/ui/VictoryModal';
 import { LandscapeAlert } from './components/ui/LandscapeAlert';
 import { FloorTransitionModal } from './components/ui/FloorTransitionModal';
 import { MapViewerOverlay } from './components/ui/MapViewerOverlay';
+import { CutscenePlayer } from './components/ui/CutscenePlayer';
 import { isMobileDevice, requestGameFullscreen } from './utils/fullscreen';
 
 export default function App() {
@@ -93,6 +94,9 @@ export default function App() {
 
       {/* Victory Modal */}
       {status === 'victory' && <VictoryModal />}
+
+      {/* Introductory Story Cutscene */}
+      {status === 'cutscene' && <CutscenePlayer />}
 
       {/* Atmospheric Start Lobby */}
       {status === 'lobby' && !isMapViewer && <LobbyScreen />}

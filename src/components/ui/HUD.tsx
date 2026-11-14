@@ -17,11 +17,14 @@ import {
   ShieldAlert,
   Maximize,
   Minimize,
+  Gauge,
 } from 'lucide-react';
 
 export const HUD: React.FC = () => {
   const isMapViewer = useGameStore((s) => s.isMapViewer);
   const currentFloor = useGameStore((s) => s.currentFloor);
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const toggleGraphicsQuality = useGameStore((s) => s.toggleGraphicsQuality);
   const solvedQuestionIds = useGameStore((s) => s.solvedQuestionIds);
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
@@ -227,6 +230,19 @@ export const HUD: React.FC = () => {
             title="Suara Game"
           >
             {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+
+          {/* Graphics Quality Toggle Button */}
+          <button
+            onClick={toggleGraphicsQuality}
+            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer ${
+              graphicsQuality === 'mobile'
+                ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                : 'bg-sky-500/20 border-sky-400/50 text-sky-300'
+            }`}
+            title={graphicsQuality === 'mobile' ? 'Mode Performa HP (60 FPS)' : 'Mode Grafis Tinggi (PC)'}
+          >
+            <Gauge size={18} />
           </button>
 
           {/* Fullscreen Button */}

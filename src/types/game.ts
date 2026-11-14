@@ -74,7 +74,7 @@ export interface RoomConfig {
   playerColor: string;
 }
 
-export type GameStatus = 'lobby' | 'playing' | 'gameover' | 'victory';
+export type GameStatus = 'lobby' | 'cutscene' | 'playing' | 'gameover' | 'victory';
 
 export interface SyncMessage {
   type:

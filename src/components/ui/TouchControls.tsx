@@ -8,14 +8,12 @@ import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { multiplayerSync } from '../../services/multiplayerSync';
 import { requestGameFullscreen, exitGameFullscreen } from '../../utils/fullscreen';
-import { Hand, Key, DoorOpen, HelpCircle, Maximize, Minimize } from 'lucide-react';
+import { inputState } from '../../services/inputState';
+import { Key, DoorOpen, HelpCircle, Maximize, Minimize } from 'lucide-react';
 
 export const TouchControls: React.FC = () => {
   const activeQuestion = useGameStore((s) => s.activeQuestion);
   const status = useGameStore((s) => s.status);
-  const isMapViewer = useGameStore((s) => s.isMapViewer);
-  const setJoystick = useGameStore((s) => s.setJoystick);
-  const setTouchLook = useGameStore((s) => s.setTouchLook);
   const nearbyInteractable = useGameStore((s) => s.nearbyInteractable);
   const openQuestion = useGameStore((s) => s.openQuestion);
   const collectStairKey = useGameStore((s) => s.collectStairKey);
@@ -31,6 +29,7 @@ export const TouchControls: React.FC = () => {
 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  // Fullscreen change listener
   useEffect(() => {
     const handleFsChange = () => {
       setIsFullscreen(
@@ -58,10 +57,9 @@ export const TouchControls: React.FC = () => {
     }
   };
 
-  // Joystick touch tracking
+  // Joystick touch tracking (Pure DOM manipulation - NO React state re-renders!)
   const joystickBaseRef = useRef<HTMLDivElement>(null);
-  const [knobPos, setKnobPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isJoystickActive, setIsJoystickActive] = useState<boolean>(false);
+  const knobRef = useRef<HTMLDivElement>(null);
   const joystickTouchIdRef = useRef<number | null>(null);
 
   // Look touch tracking
@@ -83,7 +81,6 @@ export const TouchControls: React.FC = () => {
     if (joystickTouchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
     joystickTouchIdRef.current = touch.identifier;
-    setIsJoystickActive(true);
     updateJoystick(touch.clientX, touch.clientY);
   };
 
@@ -101,9 +98,11 @@ export const TouchControls: React.FC = () => {
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === joystickTouchIdRef.current) {
         joystickTouchIdRef.current = null;
-        setIsJoystickActive(false);
-        setKnobPos({ x: 0, y: 0 });
-        setJoystick(0, 0, false);
+        if (knobRef.current) {
+          knobRef.current.style.transform = 'translate(0px, 0px)';
+          knobRef.current.style.transition = 'transform 0.15s ease-out';
+        }
+        inputState.setJoystick(0, 0, false);
         break;
       }
     }
@@ -125,11 +124,15 @@ export const TouchControls: React.FC = () => {
       dy = (dy / distance) * maxRadius;
     }
 
-    setKnobPos({ x: dx, y: dy });
-    // Normalize to -1 to 1 range (in 3D, forward is -Y)
+    if (knobRef.current) {
+      knobRef.current.style.transition = 'none';
+      knobRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+
+    // Direct inputState update (0 React re-renders)
     const normX = dx / maxRadius;
     const normY = -(dy / maxRadius);
-    setJoystick(normX, normY, true);
+    inputState.setJoystick(normX, normY, true);
   };
 
   // Look Touch Drag Handlers (Right half of the screen)
@@ -146,7 +149,8 @@ export const TouchControls: React.FC = () => {
       if (touch.identifier === lookTouchIdRef.current) {
         const deltaX = touch.clientX - lastLookXRef.current;
         lastLookXRef.current = touch.clientX;
-        setTouchLook(deltaX, 0);
+        // Direct inputState accumulation
+        inputState.addLookDelta(deltaX);
         break;
       }
     }
@@ -236,11 +240,7 @@ export const TouchControls: React.FC = () => {
       <div className="absolute bottom-6 left-6 pointer-events-auto touch-none">
         <div
           ref={joystickBaseRef}
-          className={`w-32 h-32 rounded-full border-2 flex items-center justify-center transition-colors ${
-            isJoystickActive
-              ? 'bg-slate-900/60 border-emerald-400/80 shadow-lg shadow-emerald-500/20'
-              : 'bg-slate-950/40 border-slate-700/60'
-          }`}
+          className="w-32 h-32 rounded-full border-2 border-emerald-500/50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center shadow-lg"
           onTouchStart={handleJoystickStart}
           onTouchMove={handleJoystickMove}
           onTouchEnd={handleJoystickEnd}
@@ -248,19 +248,23 @@ export const TouchControls: React.FC = () => {
         >
           {/* Inner stick knob */}
           <div
-            className={`w-14 h-14 rounded-full border flex items-center justify-center pointer-events-none shadow-md ${
-              isJoystickActive
-                ? 'bg-emerald-500 border-emerald-300 text-slate-950'
-                : 'bg-slate-700/80 border-slate-500 text-slate-300'
-            }`}
-            style={{
-              transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
-              transition: isJoystickActive ? 'none' : 'transform 0.15s ease-out',
-            }}
+            ref={knobRef}
+            className="w-14 h-14 rounded-full border-2 border-emerald-300 bg-emerald-500/90 text-slate-950 flex items-center justify-center pointer-events-none shadow-md"
           >
-            <div className="w-4 h-4 rounded-full bg-white/40" />
+            <div className="w-4 h-4 rounded-full bg-white/60" />
           </div>
         </div>
+      </div>
+
+      {/* Floating Fullscreen Pill Button for Mobile */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 pointer-events-auto sm:hidden">
+        <button
+          onClick={handleToggleFullscreen}
+          className="px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-slate-300 text-[11px] font-bold flex items-center gap-1.5 shadow-lg active:scale-95 transition"
+        >
+          {isFullscreen ? <Minimize size={13} /> : <Maximize size={13} />}
+          <span>{isFullscreen ? 'Normal' : 'Layar Penuh'}</span>
+        </button>
       </div>
 
       {/* Bottom-Right: Large Action Button when Near Object */}

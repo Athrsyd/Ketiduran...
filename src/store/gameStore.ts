@@ -8,6 +8,7 @@ import { GameStatus, PlayerData, Question, RobotState } from '../types/game';
 import { PAI_QUESTIONS } from '../data/questions';
 import { getFloorSpawnPosition } from '../utils/gameLogic';
 import { sound } from '../services/soundEngine';
+import { isMobileDevice } from '../utils/fullscreen';
 
 export interface MapTransitionPopupData {
   show: boolean;
@@ -48,6 +49,9 @@ export interface GameState {
   virtualJoystick: { x: number; y: number; active: boolean };
   touchLookDelta: { x: number; y: number };
 
+  // Graphics Quality (Mobile performance vs High PC)
+  graphicsQuality: 'high' | 'mobile';
+
   // Map Transition Popup State
   mapTransitionPopup: MapTransitionPopupData | null;
 
@@ -58,8 +62,11 @@ export interface GameState {
   teleportTarget: [number, number, number] | null;
 
   // Actions
-  startSolo: (name: string, color: string) => void;
-  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3) => void;
+  startSolo: (name: string, color: string, skipCutscene?: boolean) => void;
+  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3, skipCutscene?: boolean) => void;
+  finishCutscene: () => void;
+  playCutsceneStandalone: () => void;
+  toggleGraphicsQuality: () => void;
   setMyPosition: (pos: [number, number, number], yaw: number, inZone: boolean) => void;
   updateTeammate: (data: PlayerData) => void;
   removeTeammate: (id: string) => void;
@@ -155,18 +162,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   virtualJoystick: { x: 0, y: 0, active: false },
   touchLookDelta: { x: 0, y: 0 },
 
+  // Default to 'mobile' (60 FPS optimized) if mobile device detected, else 'high'
+  graphicsQuality: typeof window !== 'undefined' && isMobileDevice() ? 'mobile' : 'high',
+
   mapTransitionPopup: null,
   isMapViewer: false,
   viewerCameraMode: 'walk',
   viewerNoclip: false,
   teleportTarget: null,
 
-  startSolo: (name: string, color: string) => {
-    sound.startAmbience();
+  startSolo: (name: string, color: string, skipCutscene = false) => {
     const spawnPos = getFloorSpawnPosition(4);
     const info = getFloorTransitionInfo(4);
+
+    if (skipCutscene) {
+      sound.startAmbience();
+    }
+
     set({
-      status: 'playing',
+      status: skipCutscene ? 'playing' : 'cutscene',
       currentFloor: 4,
       roomCode: 'SOLO-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
       maxPlayers: 1,
@@ -184,22 +198,28 @@ export const useGameStore = create<GameState>((set, get) => ({
       isExitGateUnlocked: false,
       gameOverReason: '',
       isMapViewer: false,
-      mapTransitionPopup: {
-        show: true,
-        fromFloor: 4,
-        toFloor: 4,
-        title: info.title,
-        desc: info.desc,
-      },
+      mapTransitionPopup: skipCutscene
+        ? {
+            show: true,
+            fromFloor: 4,
+            toFloor: 4,
+            title: info.title,
+            desc: info.desc,
+          }
+        : null,
     });
   },
 
-  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3) => {
-    sound.startAmbience();
+  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3, skipCutscene = false) => {
     const spawnPos = getFloorSpawnPosition(4);
     const info = getFloorTransitionInfo(4);
+
+    if (skipCutscene) {
+      sound.startAmbience();
+    }
+
     set({
-      status: 'playing',
+      status: skipCutscene ? 'playing' : 'cutscene',
       currentFloor: 4,
       roomCode: roomCode.trim().toUpperCase() || 'KELAS-11',
       maxPlayers,
@@ -217,14 +237,43 @@ export const useGameStore = create<GameState>((set, get) => ({
       isExitGateUnlocked: false,
       gameOverReason: '',
       isMapViewer: false,
+      mapTransitionPopup: skipCutscene
+        ? {
+            show: true,
+            fromFloor: 4,
+            toFloor: 4,
+            title: info.title,
+            desc: info.desc,
+          }
+        : null,
+    });
+  },
+
+  finishCutscene: () => {
+    sound.startAmbience();
+    const current = get().currentFloor;
+    const info = getFloorTransitionInfo(current);
+    set({
+      status: 'playing',
       mapTransitionPopup: {
         show: true,
-        fromFloor: 4,
-        toFloor: 4,
+        fromFloor: current,
+        toFloor: current,
         title: info.title,
         desc: info.desc,
       },
     });
+  },
+
+  playCutsceneStandalone: () => {
+    sound.stopAmbience();
+    set({ status: 'cutscene' });
+  },
+
+  toggleGraphicsQuality: () => {
+    set((state) => ({
+      graphicsQuality: state.graphicsQuality === 'mobile' ? 'high' : 'mobile',
+    }));
   },
 
   setMyPosition: (pos, yaw, inZone) => {

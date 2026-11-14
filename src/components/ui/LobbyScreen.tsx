@@ -13,13 +13,12 @@ import {
   Users,
   User,
   Play,
-  Sparkles,
-  BookOpen,
   Smartphone,
   Laptop,
-  ShieldAlert,
-  Compass,
   Layers,
+  Film,
+  Gauge,
+  Sparkles,
 } from 'lucide-react';
 
 const AVATAR_COLORS = [
@@ -34,6 +33,9 @@ export const LobbyScreen: React.FC = () => {
   const startSolo = useGameStore((s) => s.startSolo);
   const joinRoom = useGameStore((s) => s.joinRoom);
   const setMapViewer = useGameStore((s) => s.setMapViewer);
+  const playCutsceneStandalone = useGameStore((s) => s.playCutsceneStandalone);
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const toggleGraphicsQuality = useGameStore((s) => s.toggleGraphicsQuality);
 
   const [name, setName] = useState<string>('Siswa SMK');
   const [selectedColor, setSelectedColor] = useState<string>('#38bdf8');
@@ -56,6 +58,11 @@ export const LobbyScreen: React.FC = () => {
     requestGameFullscreen();
     sound.playInteract();
     setMapViewer(true);
+  };
+
+  const handlePlayCutscene = () => {
+    requestGameFullscreen();
+    playCutsceneStandalone();
   };
 
   return (
@@ -167,6 +174,24 @@ export const LobbyScreen: React.FC = () => {
               />
             </div>
           )}
+
+          {/* Quality Mode Setting */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/50 border border-slate-800 text-xs">
+            <div className="flex items-center gap-2 text-slate-300">
+              <Gauge size={16} className="text-amber-400" />
+              <span>Mode Grafis:</span>
+              <span className={`font-bold ${graphicsQuality === 'mobile' ? 'text-emerald-400' : 'text-sky-400'}`}>
+                {graphicsQuality === 'mobile' ? 'Performa HP (Smooth 60 FPS)' : 'Kualitas Tinggi (PC)'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={toggleGraphicsQuality}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 transition cursor-pointer"
+            >
+              Ubah
+            </button>
+          </div>
         </div>
 
         {/* Controls Summary */}
@@ -181,7 +206,7 @@ export const LobbyScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Start Button & Test Map Button */}
+        {/* Start Button & Secondary Options */}
         <div className="space-y-2.5">
           <button
             onClick={handleStart}
@@ -191,15 +216,27 @@ export const LobbyScreen: React.FC = () => {
             <span>MULAI PETUALANGAN MALAM HARI</span>
           </button>
 
-          {/* Dedicated Map Test Route Button */}
-          <button
-            type="button"
-            onClick={handleOpenMapViewer}
-            className="w-full py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-emerald-400 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <Layers size={16} />
-            <span>Mode Khusus: Test & Preview Semua Map (Lantai 4 s.d. Lantai 1)</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            {/* Watch Cutscene Button */}
+            <button
+              type="button"
+              onClick={handlePlayCutscene}
+              className="py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <Film size={15} />
+              <span>Tonton Intro Cutscene</span>
+            </button>
+
+            {/* Dedicated Map Test Route Button */}
+            <button
+              type="button"
+              onClick={handleOpenMapViewer}
+              className="py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <Layers size={15} />
+              <span>Test & Preview Map</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -10,6 +10,7 @@ import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { isPointInZone, checkAllPlayersInGatheringZone } from '../../utils/gameLogic';
 import { resolveMovement, getUpperFloorWalls, getFloor1Walls } from '../../utils/collision';
+import { inputState } from '../../services/inputState';
 import { sound } from '../../services/soundEngine';
 import { multiplayerSync } from '../../services/multiplayerSync';
 
@@ -193,10 +194,10 @@ export const PlayerController: React.FC = () => {
       useGameStore.setState({ teleportTarget: null });
     }
 
-    // Apply touch look drag (horizontal yaw)
-    if (store.touchLookDelta.x !== 0) {
-      yawRef.current -= store.touchLookDelta.x * 0.0035;
-      store.setTouchLook(0, 0); // reset delta
+    // Apply high-performance touch look drag from inputState (0 React overhead)
+    const lookDelta = inputState.consumeLookDelta();
+    if (lookDelta !== 0) {
+      yawRef.current -= lookDelta * 0.0035;
     }
 
     // 1. Process movement inputs
@@ -209,10 +210,10 @@ export const PlayerController: React.FC = () => {
     if (keys['KeyA'] || keys['ArrowLeft'] || keys['a']) _moveDir.x -= 1;
     if (keys['KeyD'] || keys['ArrowRight'] || keys['d']) _moveDir.x += 1;
 
-    // Virtual Joystick inputs (Mobile / Tablet)
-    if (store.virtualJoystick.active) {
-      _moveDir.x += store.virtualJoystick.x;
-      _moveDir.z -= store.virtualJoystick.y; // Y axis inverted in 3D (forward is -Z)
+    // Virtual Joystick inputs from lightweight inputState
+    if (inputState.joystick.active) {
+      _moveDir.x += inputState.joystick.x;
+      _moveDir.z -= inputState.joystick.y; // Y axis inverted in 3D (forward is -Z)
     }
 
     const currentPos = camera.position;
@@ -235,9 +236,7 @@ export const PlayerController: React.FC = () => {
         // Forward vector: looking along -Z transformed by yaw
         _forward.set(-sinYaw, 0, -cosYaw);
 
-        // FIX: BUG 2 - Tombol A dan D terbalik!
         // Right vector: cross product Forward x Up = (cosYaw, 0, -sinYaw)
-        // Previously was (cosYaw, 0, +sinYaw) which inverted right/left at certain angles!
         _side.set(cosYaw, 0, -sinYaw);
 
         const dx = (_side.x * _moveDir.x + _forward.x * (-_moveDir.z)) * speed * delta;
@@ -251,8 +250,7 @@ export const PlayerController: React.FC = () => {
           currentPos.x = targetX;
           currentPos.z = targetZ;
         } else {
-          // FIX: BUG 1 - Tembok lorong ke kelas masih bisa menembus!
-          // Use exact AABB wall collision with separate X and Z sliding
+          // Exact AABB wall collision with separate X and Z sliding
           const playerRadius = 0.35;
           let walls: ReturnType<typeof getUpperFloorWalls>;
           let bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
