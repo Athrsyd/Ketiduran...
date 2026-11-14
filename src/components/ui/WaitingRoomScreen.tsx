@@ -81,11 +81,12 @@ export const WaitingRoomScreen: React.FC = () => {
   const totalPlayers = 1 + teammateList.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950 overflow-y-auto select-none">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 select-none">
       {/* Dark Eerie Foggy Grid Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(30,41,59,0.5)_0%,rgba(2,6,23,0.98)_100%)] pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(30,41,59,0.5)_0%,rgba(2,6,23,0.98)_100%)] pointer-events-none" />
 
-      <div className="relative w-full max-w-2xl bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-md space-y-6">
+      <div className="min-h-full w-full flex flex-col justify-center items-center py-6 px-4">
+        <div className="relative w-full max-w-2xl bg-slate-900/95 border border-slate-800 rounded-3xl shadow-2xl p-6 sm:p-8 backdrop-blur-md space-y-6 my-auto">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -272,5 +273,6 @@ export const WaitingRoomScreen: React.FC = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };
