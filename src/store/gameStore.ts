@@ -42,9 +42,12 @@ export interface GameState {
   masterKeySpawnIndex: number;
   isExitGateUnlocked: boolean;
   robotState: RobotState;
+  isStunned: boolean;
+  topRightToast: { message: string; timestamp: number } | null;
   nearbyInteractable: {
-    type: 'question' | 'stair_key' | 'stair_gate' | 'master_key' | 'exit_gate';
+    type: 'question' | 'stair_key' | 'stair_gate' | 'master_key' | 'exit_gate' | 'revive_teammate';
     id?: string;
+    targetTeammateId?: string;
     label: string;
     distance: number;
   } | null;
@@ -103,6 +106,12 @@ export interface GameState {
   unlockExitGate: (broadcast?: boolean) => void;
   transitionToNextFloor: (nextFloor?: number, broadcast?: boolean) => void;
   setRobotState: (update: Partial<RobotState>) => void;
+  showTopRightToast: (message: string) => void;
+  clearTopRightToast: () => void;
+  stunLocalPlayer: (broadcast?: boolean) => void;
+  reviveLocalPlayer: (broadcast?: boolean) => void;
+  stunTeammate: (id: string, broadcast?: boolean) => void;
+  reviveTeammate: (id: string, broadcast?: boolean) => void;
   triggerGameOver: (reason: string, broadcast?: boolean) => void;
   triggerVictory: (broadcast?: boolean) => void;
   restartGame: (broadcast?: boolean) => void;
@@ -328,6 +337,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
   setMasterKeySpawnIndex: (index: number) => set({ masterKeySpawnIndex: index }),
   isExitGateUnlocked: false,
+  isStunned: false,
+  topRightToast: null,
   robotState: {
     x: 0,
     z: -36,
@@ -410,6 +421,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
+      isStunned: false,
+      topRightToast: null,
       gameOverReason: '',
       isMapViewer: false,
       mapTransitionPopup: null,
@@ -456,6 +469,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
+      isStunned: false,
+      topRightToast: null,
       gameOverReason: '',
       isMapViewer: false,
       mapTransitionPopup: skipCutscene
@@ -497,6 +512,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
+      isStunned: false,
+      topRightToast: null,
       gameOverReason: '',
       isMapViewer: false,
       mapTransitionPopup: skipCutscene
@@ -643,6 +660,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       myIsInGatheringZone: false,
       hasStairKey: false,
       isGateUnlocked: false,
+      isStunned: false,
+      topRightToast: null,
       masterKeySpawnIndex: nextSpawnIndex,
       activeQuestion: null,
       mapTransitionPopup: {
@@ -670,6 +689,50 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((state) => ({
       robotState: { ...state.robotState, ...update },
     }));
+  },
+
+  showTopRightToast: (message: string) => {
+    set({ topRightToast: { message, timestamp: Date.now() } });
+  },
+
+  clearTopRightToast: () => {
+    set({ topRightToast: null });
+  },
+
+  stunLocalPlayer: () => {
+    set({ isStunned: true });
+  },
+
+  reviveLocalPlayer: () => {
+    sound.playKeyPickup();
+    set({ isStunned: false });
+  },
+
+  stunTeammate: (id: string) => {
+    set((state) => {
+      const tm = state.teammates[id];
+      if (!tm) return state;
+      return {
+        teammates: {
+          ...state.teammates,
+          [id]: { ...tm, isStunned: true },
+        },
+      };
+    });
+  },
+
+  reviveTeammate: (id: string) => {
+    sound.playKeyPickup();
+    set((state) => {
+      const tm = state.teammates[id];
+      if (!tm) return state;
+      return {
+        teammates: {
+          ...state.teammates,
+          [id]: { ...tm, isStunned: false },
+        },
+      };
+    });
   },
 
   triggerGameOver: (reason) => {
@@ -707,6 +770,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: false,
       masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
+      isStunned: false,
+      topRightToast: null,
       gameOverReason: '',
       mapTransitionPopup: {
         show: true,

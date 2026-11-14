@@ -57,6 +57,7 @@ export interface PlayerData {
   yaw: number;
   currentFloor: number;
   isInGatheringZone: boolean;
+  isStunned?: boolean;
   isHost?: boolean;
   isReady?: boolean;
   lastActive: number;
@@ -67,6 +68,8 @@ export interface RobotState {
   z: number;
   rotation: number;
   isChasing: boolean;
+  isRecharging?: boolean;
+  rechargeSecondsLeft?: number;
   targetPlayerId: string | null;
 }
 
@@ -94,6 +97,8 @@ export interface SyncMessage {
     | 'GATE_UNLOCKED'
     | 'FLOOR_TRANSITION'
     | 'ROBOT_STATE'
+    | 'PLAYER_STUNNED'
+    | 'PLAYER_REVIVED'
     | 'GAME_OVER'
     | 'VICTORY'
     | 'RESTART_GAME';
