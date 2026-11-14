@@ -108,52 +108,49 @@ export const QuestionModal: React.FC<QuestionModalProps> = ({ question }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-slate-950/80 border-b border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-sm">
+        {/* Modal Header (Compact Single-Row for Mobile & Desktop) */}
+        <div className="flex items-center justify-between px-3.5 sm:px-5 py-2 sm:py-2.5 bg-slate-950 border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs shrink-0">
               L{question.floor}
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wider font-semibold text-emerald-400">
-                  {question.topic}
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {question.type === 'multiple_choice' && 'Pilihan Ganda'}
-                  {question.type === 'word_arrange' && 'Susun Kata'}
-                  {question.type === 'match_pairs' && 'Menjodohkan'}
-                  {question.type === 'category_sort' && 'Mencocokkan Kategori'}
-                </span>
-              </div>
-              <h2 className="text-base sm:text-lg font-bold text-white line-clamp-1">
-                {question.title}
-              </h2>
-            </div>
+            <span className="text-xs font-bold text-emerald-400/90 truncate">
+              {question.topic}
+            </span>
+            <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+              {question.type === 'multiple_choice' && 'Pilihan Ganda'}
+              {question.type === 'word_arrange' && 'Susun Kata'}
+              {question.type === 'match_pairs' && 'Menjodohkan'}
+              {question.type === 'category_sort' && 'Mencocokkan Kategori'}
+            </span>
           </div>
           <button
             onClick={closeQuestion}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-1 sm:p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer touch-manipulation shrink-0"
             title="Tutup (Bisa dikerjakan nanti)"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-slate-200">
-          {/* Question Prompt */}
-          <div className="p-3.5 sm:p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
-            <p className="text-sm sm:text-base leading-relaxed text-slate-100 font-medium">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-3.5 sm:space-y-4 text-slate-200">
+          {/* Question Prompt (Soal Inti - Prominent, High Contrast & Readable) */}
+          <div className="p-3 sm:p-4 rounded-xl bg-slate-800/80 border-l-4 border-emerald-400 border-y border-r border-slate-700/60 shadow-md">
+            <div className="text-[10px] sm:text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Pertanyaan:</span>
+            </div>
+            <p className="text-base sm:text-lg md:text-xl font-bold leading-relaxed text-white">
               {question.prompt}
             </p>
           </div>
 
           {/* ========================================================
-              TYPE 1: PILIHAN GANDA (4 Large thumb-friendly buttons)
+              TYPE 1: PILIHAN GANDA (Responsive 2-col Grid on landscape/tablets)
               ======================================================== */}
           {question.type === 'multiple_choice' && (
-            <div className="space-y-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
               {(question as MultipleChoiceQuestion).options.map((opt, idx) => {
                 const isSelected = selectedOptionId === opt.id;
                 const letter = String.fromCharCode(65 + idx); // A, B, C, D
@@ -166,22 +163,22 @@ export const QuestionModal: React.FC<QuestionModalProps> = ({ question }) => {
                       setSelectedOptionId(opt.id);
                       setFeedback(null);
                     }}
-                    className={`w-full text-left p-3.5 sm:p-4 rounded-xl border flex items-start gap-3 transition cursor-pointer ${
+                    className={`w-full text-left p-2.5 sm:p-3.5 rounded-xl border flex items-center gap-2.5 sm:gap-3 transition cursor-pointer touch-manipulation ${
                       isSelected
-                        ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                        : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800 hover:border-slate-600 text-slate-200'
+                        ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-lg shadow-emerald-500/15 ring-1 ring-emerald-400'
+                        : 'bg-slate-800/50 border-slate-700/70 hover:bg-slate-800 hover:border-slate-600 text-slate-200'
                     }`}
                   >
                     <span
-                      className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${
+                      className={`flex-shrink-0 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs sm:text-sm font-bold ${
                         isSelected
-                          ? 'bg-emerald-500 text-slate-950'
-                          : 'bg-slate-700/80 text-slate-300'
+                          ? 'bg-emerald-400 text-slate-950 font-black'
+                          : 'bg-slate-700 text-slate-200'
                       }`}
                     >
                       {letter}
                     </span>
-                    <span className="text-xs sm:text-sm pt-0.5 leading-snug">{opt.text}</span>
+                    <span className="text-xs sm:text-sm leading-snug font-medium flex-1">{opt.text}</span>
                   </button>
                 );
               })}
@@ -512,18 +509,18 @@ export const QuestionModal: React.FC<QuestionModalProps> = ({ question }) => {
         </div>
 
         {/* Modal Footer */}
-        <div className="px-5 py-3.5 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between gap-3">
+        <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 bg-slate-950/95 border-t border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <button
             onClick={closeQuestion}
-            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer touch-manipulation"
           >
-            {isCompleted ? 'Tutup' : 'Kerjakan Nanti'}
+            {isCompleted ? 'Tutup' : 'Nanti Saja'}
           </button>
 
           {!isCompleted ? (
             <button
               onClick={handleSubmit}
-              className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2 cursor-pointer touch-manipulation"
             >
               <span>Periksa Jawaban</span>
               <ArrowRight size={16} />
@@ -531,7 +528,7 @@ export const QuestionModal: React.FC<QuestionModalProps> = ({ question }) => {
           ) : (
             <button
               onClick={closeQuestion}
-              className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2 cursor-pointer"
+              className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 active:scale-95 transition flex items-center gap-2 cursor-pointer touch-manipulation"
             >
               <span>Lanjut Jelajahi Sekolah</span>
               <ArrowRight size={16} />

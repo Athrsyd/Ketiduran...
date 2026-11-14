@@ -96,7 +96,7 @@ export const HUD: React.FC = () => {
   // If map viewer is active, don't show the standard HUD to prevent clutter
   if (isMapViewer) {
     return (
-      <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-between p-3 sm:p-5">
+      <div className="absolute inset-0 pointer-events-none select-none z-30 flex flex-col justify-between p-3 sm:p-5">
         {/* Center Crosshair */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-3.5 h-3.5 rounded-full border-2 border-white/60 bg-white/20" />
@@ -106,7 +106,7 @@ export const HUD: React.FC = () => {
   }
 
   return (
-    <div className="absolute inset-0 pointer-events-none select-none z-20 flex flex-col justify-between p-3 sm:p-5">
+    <div className="absolute inset-0 pointer-events-none select-none z-40 flex flex-col justify-between p-3 sm:p-5">
       {/* Top Bar */}
       <div className="flex items-start justify-between w-full">
         {/* Left: Floor & Objective Badge */}
@@ -186,11 +186,11 @@ export const HUD: React.FC = () => {
         </div>
 
         {/* Right: Key Status & Quick Settings */}
-        <div className="flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto relative z-40 touch-manipulation">
           {/* Mission Objective Hint Button */}
           <button
             onClick={toggleHint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer animate-pulse hover:animate-none"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer touch-manipulation animate-pulse hover:animate-none"
             title="Buka Petunjuk Misi (H)"
           >
             <Lightbulb size={16} className="text-amber-400 fill-amber-400/30" />
@@ -202,7 +202,7 @@ export const HUD: React.FC = () => {
 
           {/* Key Inventory Pill */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-lg ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-lg ${
               (currentFloor > 1 && (hasStairKey || isGateUnlocked)) ||
               (currentFloor === 1 && (hasMasterKey || isExitGateUnlocked))
                 ? 'bg-amber-500/20 border-amber-400/50 text-amber-300'
@@ -224,7 +224,7 @@ export const HUD: React.FC = () => {
           {/* Flashlight Button */}
           <button
             onClick={toggleFlashlight}
-            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer ${
+            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer touch-manipulation ${
               flashlightOn
                 ? 'bg-sky-500/20 border-sky-400/50 text-sky-300'
                 : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white'
@@ -237,7 +237,7 @@ export const HUD: React.FC = () => {
           {/* Sound Toggle Button */}
           <button
             onClick={toggleSound}
-            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer ${
+            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer touch-manipulation ${
               !isMuted
                 ? 'bg-slate-900/80 border-slate-800 text-emerald-400'
                 : 'bg-rose-500/20 border-rose-400/50 text-rose-300'
@@ -250,7 +250,7 @@ export const HUD: React.FC = () => {
           {/* Graphics Quality Toggle Button */}
           <button
             onClick={toggleGraphicsQuality}
-            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer ${
+            className={`p-2 rounded-xl border transition shadow-lg cursor-pointer touch-manipulation ${
               graphicsQuality === 'mobile'
                 ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
                 : 'bg-sky-500/20 border-sky-400/50 text-sky-300'
@@ -263,7 +263,7 @@ export const HUD: React.FC = () => {
           {/* Fullscreen Button */}
           <button
             onClick={handleToggleFullscreen}
-            className="p-2 rounded-xl border bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white transition shadow-lg cursor-pointer"
+            className="p-2 rounded-xl border bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white transition shadow-lg cursor-pointer touch-manipulation"
             title={isFullscreen ? 'Keluar Fullscreen' : 'Layar Penuh (Fullscreen)'}
           >
             {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
@@ -319,14 +319,13 @@ export const HUD: React.FC = () => {
         </div>
       </div>
 
-      {/* Bottom Bar: Team list */}
-      <div className="flex items-end justify-between w-full">
-        {/* Teammates List */}
-        <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-950/70 border border-slate-800/80 backdrop-blur-xs text-[11px] sm:text-xs">
-          <Users size={14} className="text-slate-400 ml-1" />
+      {/* Bottom Bar: Teammates / Player Name List (Centered horizontally to prevent overlap with bottom-left analog joystick) */}
+      <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto z-40 max-w-[85vw] overflow-x-auto">
+        <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-950/85 border border-slate-800/80 shadow-2xl backdrop-blur-md text-[11px] sm:text-xs whitespace-nowrap">
+          <Users size={14} className="text-slate-400 ml-1 shrink-0" />
           {/* Self */}
           <span
-            className="px-2 py-0.5 rounded-md font-semibold text-slate-200 flex items-center gap-1"
+            className="px-2 py-0.5 rounded-md font-semibold text-slate-200 flex items-center gap-1 shrink-0"
             style={{ borderLeft: `3px solid ${myColor}` }}
           >
             <span>{myName} (Kamu)</span>
@@ -337,7 +336,7 @@ export const HUD: React.FC = () => {
           {Object.values(teammates).map((tm) => (
             <span
               key={tm.id}
-              className="px-2 py-0.5 rounded-md font-medium text-slate-300 flex items-center gap-1"
+              className="px-2 py-0.5 rounded-md font-medium text-slate-300 flex items-center gap-1 shrink-0"
               style={{ borderLeft: `3px solid ${tm.color || '#f43f5e'}` }}
             >
               <span>{tm.name}</span>
