@@ -358,6 +358,26 @@ class MultiplayerSyncService {
         break;
       }
 
+      case 'PLAYER_STUNNED': {
+        const targetId = msg.payload?.playerId;
+        if (targetId === store.myId) {
+          store.stunLocalPlayer();
+        } else if (targetId) {
+          store.stunTeammate(targetId);
+        }
+        break;
+      }
+
+      case 'PLAYER_REVIVED': {
+        const targetId = msg.payload?.playerId;
+        if (targetId === store.myId) {
+          store.reviveLocalPlayer();
+        } else if (targetId) {
+          store.reviveTeammate(targetId);
+        }
+        break;
+      }
+
       case 'GAME_OVER': {
         if (store.status === 'playing') {
           store.triggerGameOver(msg.payload?.reason || 'Teman tertangkap oleh Robot Pengawas!', false);
