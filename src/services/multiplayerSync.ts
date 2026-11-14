@@ -5,52 +5,150 @@
 
 import { SyncMessage, PlayerData } from '../types/game';
 import { useGameStore } from '../store/gameStore';
+import supabase from '../utils/supabase';
 
 class MultiplayerSyncService {
   private channel: BroadcastChannel | null = null;
+  private supabaseChannel: any = null;
   private currentRoomCode: string = '';
   private heartbeatTimer: number | null = null;
   private cleanupTimer: number | null = null;
 
   public init(roomCode: string) {
-    if (this.channel && this.currentRoomCode === roomCode) return;
+    if (this.currentRoomCode === roomCode && (this.channel || this.supabaseChannel)) return;
 
     this.disconnect();
     this.currentRoomCode = roomCode;
 
+    // 1. BroadcastChannel for local tabs on same device
     try {
       this.channel = new BroadcastChannel(`ketiduran_${roomCode}`);
       this.channel.onmessage = this.handleMessage.bind(this);
-
-      // Start periodic heartbeat
-      this.heartbeatTimer = window.setInterval(() => {
-        this.sendHeartbeat();
-      }, 500);
-
-      // Cleanup inactive teammates
-      this.cleanupTimer = window.setInterval(() => {
-        this.pruneStaleTeammates();
-      }, 2000);
-
-      // Send initial join
-      const store = useGameStore.getState();
-      this.send({
-        type: 'PLAYER_JOIN',
-        senderId: store.myId,
-        roomCode,
-        payload: {
-          name: store.myName,
-          color: store.myColor,
-          position: store.myPosition,
-          yaw: store.myYaw,
-          currentFloor: store.currentFloor,
-          isInGatheringZone: store.myIsInGatheringZone,
-        },
-        timestamp: Date.now(),
-      });
     } catch (e) {
-      console.warn('BroadcastChannel not supported or error:', e);
+      console.warn('BroadcastChannel error:', e);
     }
+
+    // 2. Supabase Realtime Broadcast & Presence for cross-device online multiplayer
+    try {
+      if (supabase) {
+        const store = useGameStore.getState();
+        this.supabaseChannel = supabase.channel(`ketiduran_room_${roomCode}`, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: store.myId },
+          },
+        });
+
+        this.supabaseChannel
+          .on('broadcast', { event: 'sync' }, (payload: any) => {
+            if (payload && payload.payload) {
+              this.handleDirectMessage(payload.payload);
+            }
+          })
+          .on('presence', { event: 'sync' }, () => {
+            const presenceState = this.supabaseChannel.presenceState();
+            const currentStore = useGameStore.getState();
+            Object.keys(presenceState).forEach((peerKey) => {
+              if (peerKey !== currentStore.myId) {
+                const presences = presenceState[peerKey] as any[];
+                if (presences && presences.length > 0) {
+                  const p = presences[0];
+                  currentStore.updateTeammate({
+                    id: peerKey,
+                    name: p.name || 'Teman',
+                    color: p.color || '#f43f5e',
+                    gender: p.gender || 'male',
+                    position: p.position || [0, 1.6, 0],
+                    yaw: p.yaw || 0,
+                    currentFloor: p.currentFloor || currentStore.currentFloor,
+                    isInGatheringZone: !!p.isInGatheringZone,
+                    isHost: !!p.isHost,
+                    isReady: !!p.isReady,
+                    lastActive: Date.now(),
+                  });
+                }
+              }
+            });
+          })
+          .on('presence', { event: 'join' }, ({ key, newPresences }: any) => {
+            const currentStore = useGameStore.getState();
+            if (key !== currentStore.myId && newPresences && newPresences.length > 0) {
+              const p = newPresences[0];
+              currentStore.updateTeammate({
+                id: key,
+                name: p.name || 'Teman',
+                color: p.color || '#f43f5e',
+                gender: p.gender || 'male',
+                position: p.position || [0, 1.6, 0],
+                yaw: p.yaw || 0,
+                currentFloor: p.currentFloor || currentStore.currentFloor,
+                isInGatheringZone: !!p.isInGatheringZone,
+                isHost: !!p.isHost,
+                isReady: !!p.isReady,
+                lastActive: Date.now(),
+              });
+            }
+          })
+          .on('presence', { event: 'leave' }, ({ key }: any) => {
+            const currentStore = useGameStore.getState();
+            if (key !== currentStore.myId) {
+              currentStore.removeTeammate(key);
+            }
+          })
+          .subscribe(async (status: string) => {
+            const currentStore = useGameStore.getState();
+            if (status === 'SUBSCRIBED') {
+              currentStore.setSupabaseConnected(true);
+              try {
+                await this.supabaseChannel.track({
+                  id: currentStore.myId,
+                  name: currentStore.myName,
+                  color: currentStore.myColor,
+                  gender: currentStore.myGender,
+                  isHost: currentStore.isHost,
+                  isReady: currentStore.isReady,
+                  currentFloor: currentStore.currentFloor,
+                });
+              } catch {}
+            } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+              currentStore.setSupabaseConnected(false);
+            }
+          });
+      }
+    } catch (e) {
+      console.warn('Supabase Realtime channel error:', e);
+      useGameStore.getState().setSupabaseConnected(false);
+    }
+
+    // Start periodic heartbeat
+    this.heartbeatTimer = window.setInterval(() => {
+      this.sendHeartbeat();
+    }, 500);
+
+    // Cleanup inactive teammates
+    this.cleanupTimer = window.setInterval(() => {
+      this.pruneStaleTeammates();
+    }, 2500);
+
+    // Send initial join
+    const store = useGameStore.getState();
+    this.send({
+      type: 'PLAYER_JOIN',
+      senderId: store.myId,
+      roomCode,
+      payload: {
+        name: store.myName,
+        color: store.myColor,
+        gender: store.myGender,
+        position: store.myPosition,
+        yaw: store.myYaw,
+        currentFloor: store.currentFloor,
+        isInGatheringZone: store.myIsInGatheringZone,
+        isHost: store.isHost,
+        isReady: store.isReady,
+      },
+      timestamp: Date.now(),
+    });
   }
 
   public disconnect() {
@@ -73,18 +171,37 @@ class MultiplayerSyncService {
       this.channel.close();
       this.channel = null;
     }
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.unsubscribe();
+      } catch {}
+      this.supabaseChannel = null;
+      useGameStore.getState().setSupabaseConnected(false);
+    }
   }
 
   public send(msg: SyncMessage) {
-    if (!this.channel) return;
-    try {
-      this.channel.postMessage(msg);
-    } catch {}
+    // Send to local BroadcastChannel
+    if (this.channel) {
+      try {
+        this.channel.postMessage(msg);
+      } catch {}
+    }
+    // Send to Supabase Realtime channel for network peers
+    if (this.supabaseChannel) {
+      try {
+        this.supabaseChannel.send({
+          type: 'broadcast',
+          event: 'sync',
+          payload: msg,
+        });
+      } catch {}
+    }
   }
 
   private sendHeartbeat() {
     const store = useGameStore.getState();
-    if (store.status !== 'playing') return;
+    if (store.status !== 'playing' && store.status !== 'waiting_room') return;
 
     this.send({
       type: 'PLAYER_HEARTBEAT',
@@ -93,10 +210,13 @@ class MultiplayerSyncService {
       payload: {
         name: store.myName,
         color: store.myColor,
+        gender: store.myGender,
         position: store.myPosition,
         yaw: store.myYaw,
         currentFloor: store.currentFloor,
         isInGatheringZone: store.myIsInGatheringZone,
+        isHost: store.isHost,
+        isReady: store.isReady,
         solvedQuestionIds: store.solvedQuestionIds,
         hasStairKey: store.hasStairKey,
         isGateUnlocked: store.isGateUnlocked,
@@ -106,7 +226,10 @@ class MultiplayerSyncService {
   }
 
   private handleMessage(event: MessageEvent<SyncMessage>) {
-    const msg = event.data;
+    this.handleDirectMessage(event.data);
+  }
+
+  private handleDirectMessage(msg: SyncMessage) {
     if (!msg || !msg.type) return;
 
     const store = useGameStore.getState();
@@ -122,10 +245,13 @@ class MultiplayerSyncService {
           id: msg.senderId,
           name: payload.name || 'Teman',
           color: payload.color || '#f43f5e',
+          gender: payload.gender || 'male',
           position: payload.position || [0, 1.6, 0],
           yaw: payload.yaw || 0,
           currentFloor: payload.currentFloor || store.currentFloor,
           isInGatheringZone: !!payload.isInGatheringZone,
+          isHost: !!payload.isHost,
+          isReady: !!payload.isReady,
           lastActive: Date.now(),
         };
         store.updateTeammate(teammateData);
@@ -138,6 +264,28 @@ class MultiplayerSyncService {
           if (mergedSolved.length > store.solvedQuestionIds.length) {
             useGameStore.setState({ solvedQuestionIds: mergedSolved });
           }
+        }
+        break;
+      }
+
+      case 'PLAYER_READY': {
+        const payload = msg.payload;
+        if (!payload) break;
+        const existing = store.teammates[msg.senderId];
+        if (existing) {
+          store.updateTeammate({
+            ...existing,
+            isReady: !!payload.isReady,
+            lastActive: Date.now(),
+          });
+        }
+        break;
+      }
+
+      case 'GAME_START': {
+        // Host started the game, transition from waiting room into cutscene / playing
+        if (store.status === 'waiting_room') {
+          store.startMultiplayerGame(false);
         }
         break;
       }

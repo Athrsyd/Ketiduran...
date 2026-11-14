@@ -13,7 +13,7 @@ interface KeyItemProps {
   isNearby: boolean;
 }
 
-export const KeyItem: React.FC<KeyItemProps> = ({
+export const KeyItem = React.memo<KeyItemProps>(({
   position,
   isMasterKey = false,
   isNearby,
@@ -98,4 +98,4 @@ export const KeyItem: React.FC<KeyItemProps> = ({
       />
     </group>
   );
-};
+});

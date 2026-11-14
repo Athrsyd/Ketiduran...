@@ -5,22 +5,28 @@
 
 import React from 'react';
 import * as THREE from 'three';
+import { useGameStore } from '../../store/gameStore';
 
 interface ClassroomRoomProps {
   roomName: string;
   position: [number, number, number];
+  rotation?: [number, number, number];
   isLeftSide: boolean; // true = room is west of corridor (X < 0), false = east (X > 0)
   hasExamDesk?: boolean;
   examDeskElement?: React.ReactNode;
 }
 
-export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
+export const ClassroomRoom = React.memo<ClassroomRoomProps>(({
   roomName,
   position,
+  rotation,
   isLeftSide,
   hasExamDesk = false,
   examDeskElement,
 }) => {
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
+
   const width = 12.0;
   const depth = 11.0;
   const wallH = 3.8;
@@ -37,7 +43,7 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
   const doorH = 2.8;
 
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* ========================================================
           1. CLASSROOM FLOOR & CEILING
           ======================================================== */}
@@ -53,9 +59,9 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
         <meshStandardMaterial color="#1e293b" roughness={0.9} />
       </mesh>
 
-      {/* Glowing Emissive Tube Fixtures (0 expensive point lights on mobile!) */}
-      {[-2.8, 2.8].map((lx) =>
-        [-2.0, 2.5].map((lz) => (
+      {/* Glowing Emissive Tube Fixtures (Optimized for 60fps on mobile) */}
+      {(isMobile ? [0] : [-2.8, 2.8]).map((lx) =>
+        (isMobile ? [0] : [-2.0, 2.5]).map((lz) => (
           <mesh key={`c_light_${lx}_${lz}`} position={[lx, wallH - 0.08, lz]}>
             <boxGeometry args={[1.8, 0.08, 0.35]} />
             <meshStandardMaterial color="#ffffff" emissive="#f8fafc" emissiveIntensity={1.2} />
@@ -63,8 +69,8 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
         ))
       )}
 
-      {/* Single Soft Accent Light only in rooms with exam desk */}
-      {hasExamDesk && (
+      {/* Single Soft Accent Light only in rooms with exam desk on desktop */}
+      {hasExamDesk && !isMobile && (
         <pointLight position={[0, wallH - 0.4, 0]} color="#f1f5f9" intensity={0.9} distance={14} decay={2} />
       )}
 
@@ -251,19 +257,19 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
           7. HIGH-PERFORMANCE LOW-POLY STUDENT DESKS & CHAIRS
           (66% fewer draw calls for 60 FPS mobile performance!)
           ======================================================== */}
-      {[-2.4, 2.4].map((colX, colIdx) =>
-        [-0.5, 1.8, 4.0].map((rowZ, rowIdx) => {
-          const isExamSpot = hasExamDesk && colIdx === 0 && rowIdx === 1;
+      {(isMobile ? [-2.4, 2.4] : [-2.4, 2.4]).map((colX, colIdx) =>
+        (isMobile ? [1.8] : [-0.5, 1.8, 4.0]).map((rowZ, rowIdx) => {
+          const isExamSpot = hasExamDesk && colIdx === 0 && (isMobile ? true : rowIdx === 1);
           if (isExamSpot) return null;
 
           return (
             <group key={`s_desk_${colIdx}_${rowIdx}`} position={[colX, 0, rowZ]}>
-              {/* Desk Tabletop & Drawer (Unified Stylized Shape) */}
+              {/* Desk Tabletop & Drawer */}
               <mesh position={[0, 0.68, 0]}>
                 <boxGeometry args={[1.4, 0.16, 0.65]} />
                 <meshStandardMaterial color="#b45309" roughness={0.7} />
               </mesh>
-              {/* Sturdy Side Leg Panels (2 meshes instead of 4 cylinders!) */}
+              {/* Sturdy Side Leg Panels */}
               <mesh position={[-0.62, 0.32, 0]}>
                 <boxGeometry args={[0.06, 0.64, 0.55]} />
                 <meshStandardMaterial color="#334155" metalness={0.7} />
@@ -273,18 +279,20 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
                 <meshStandardMaterial color="#334155" metalness={0.7} />
               </mesh>
 
-              {/* 2 Paired Low-Poly Student Chairs */}
-              {[-0.35, 0.35].map((chairX, chairI) => (
+              {/* Student Chairs (1 on mobile, 2 on PC) */}
+              {(isMobile ? [0] : [-0.35, 0.35]).map((chairX, chairI) => (
                 <group key={`chair_${chairI}`} position={[chairX, 0, 0.62]}>
                   {/* Seat & Legs */}
                   <mesh position={[0, 0.42, 0]}>
                     <boxGeometry args={[0.42, 0.04, 0.4]} />
                     <meshStandardMaterial color="#78350f" roughness={0.8} />
                   </mesh>
-                  <mesh position={[0, 0.21, 0]}>
-                    <boxGeometry args={[0.38, 0.42, 0.35]} />
-                    <meshStandardMaterial color="#1e293b" />
-                  </mesh>
+                  {!isMobile && (
+                    <mesh position={[0, 0.21, 0]}>
+                      <boxGeometry args={[0.38, 0.42, 0.35]} />
+                      <meshStandardMaterial color="#1e293b" />
+                    </mesh>
+                  )}
                   {/* Backrest */}
                   <mesh position={[0, 0.72, 0.18]}>
                     <boxGeometry args={[0.4, 0.24, 0.04]} />
@@ -323,4 +331,4 @@ export const ClassroomRoom: React.FC<ClassroomRoomProps> = ({
       {examDeskElement}
     </group>
   );
-};
+});

@@ -16,7 +16,7 @@ interface QuestionDeskProps {
   isNearby: boolean;
 }
 
-export const QuestionDesk: React.FC<QuestionDeskProps> = ({
+export const QuestionDesk = React.memo<QuestionDeskProps>(({
   question,
   position,
   rotation = [0, 0, 0],
@@ -27,7 +27,7 @@ export const QuestionDesk: React.FC<QuestionDeskProps> = ({
   const paperRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
-    if (glowRef.current) {
+    if (!isSolved && glowRef.current) {
       const t = state.clock.getElapsedTime();
       const scale = 1 + Math.sin(t * 3) * 0.08;
       glowRef.current.scale.set(scale, scale, scale);
@@ -127,4 +127,4 @@ export const QuestionDesk: React.FC<QuestionDeskProps> = ({
       </group>
     </group>
   );
-};
+});

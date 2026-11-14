@@ -27,12 +27,14 @@ export const GameCanvas: React.FC = () => {
       <Canvas
         frameloop={isCutscene ? 'never' : 'always'}
         shadows={!isMobile}
-        dpr={isMobile ? [0.75, 1.0] : [1, 1.25]}
-        camera={{ position: [0, 1.6, 10], fov: 75, near: 0.1, far: 110 }}
+        dpr={isMobile ? [0.65, 0.85] : [1, 1.25]}
+        camera={{ position: [0, 1.6, 10], fov: 75, near: 0.1, far: isMobile ? 65 : 110 }}
         gl={{
           antialias: !isMobile,
           powerPreference: 'high-performance',
           precision: isMobile ? 'mediump' : 'highp',
+          stencil: false,
+          depth: true,
         }}
       >
         {/* Atmospheric School Night Fog */}

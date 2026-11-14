@@ -13,15 +13,21 @@ import { KeyItem } from './KeyItem';
 import { StairGate } from './StairGate';
 import { RobotSupervisor } from './RobotSupervisor';
 import { TeammateModel } from './TeammateModel';
+import { MultiplayerSchoolFloor } from './MultiplayerSchoolFloor';
+import { DemoTeammatesWanderer } from './DemoTeammatesWanderer';
 
-export const SchoolFloor: React.FC = () => {
+export const SoloSchoolFloor: React.FC = () => {
   const currentFloor = useGameStore((s) => s.currentFloor);
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
   const solvedQuestionIds = useGameStore((s) => s.solvedQuestionIds);
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
   const hasMasterKey = useGameStore((s) => s.hasMasterKey);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
-  const nearbyInteractable = useGameStore((s) => s.nearbyInteractable);
+  const nearbyQuestionId = useGameStore((s) => s.nearbyInteractable?.type === 'question' ? s.nearbyInteractable.id : null);
+  const isStairKeyNearby = useGameStore((s) => s.nearbyInteractable?.type === 'stair_key');
+  const isMasterKeyNearby = useGameStore((s) => s.nearbyInteractable?.type === 'master_key');
   const teammates = useGameStore((s) => s.teammates);
   const myIsInGatheringZone = useGameStore((s) => s.myIsInGatheringZone);
 
@@ -82,22 +88,22 @@ export const SchoolFloor: React.FC = () => {
             <meshStandardMaterial color="#0f172a" roughness={0.9} />
           </mesh>
 
-          {/* Corridor Ceiling Fluorescent Lights (Glowing Emissive Meshes - 0 PointLight lag!) */}
-          {[10, 4, -2, -8, -14, -20, -26, -32, -38, -44, -50, -56, -62, -68].map((z, i) => (
+          {/* Corridor Ceiling Fluorescent Lights (Zero fragment shading cost with MeshBasicMaterial) */}
+          {(isMobile ? [10, -2, -14, -26, -38, -50, -62] : [10, 4, -2, -8, -14, -20, -26, -32, -38, -44, -50, -56, -62, -68]).map((z, i) => (
             <mesh key={`c_light_${i}`} position={[0, 3.74, z]}>
               <boxGeometry args={[1.8, 0.08, 0.35]} />
-              <meshStandardMaterial color="#ffffff" emissive="#e0f2fe" emissiveIntensity={1.2} />
+              <meshBasicMaterial color="#e0f2fe" />
             </mesh>
           ))}
 
-          {/* 3 Strategically Placed Soft Downlights for entire 88m corridor */}
-          {[4, -28, -60].map((z, i) => (
+          {/* Strategically Placed Soft Downlights (2 on mobile, 3 on PC) */}
+          {(isMobile ? [-10, -50] : [4, -28, -60]).map((z, i) => (
             <pointLight
               key={`corr_zone_light_${i}`}
               position={[0, 3.5, z]}
               color="#bae6fd"
-              intensity={1.2}
-              distance={26}
+              intensity={isMobile ? 1.0 : 1.2}
+              distance={isMobile ? 22 : 26}
               decay={2}
             />
           ))}
@@ -333,7 +339,7 @@ export const SchoolFloor: React.FC = () => {
           {floorQuestions.map((q, idx) => {
             const pos = deskPositions[idx] || [0, 0, 0];
             const isSolved = solvedQuestionIds.includes(q.id);
-            const isNearby = nearbyInteractable?.id === q.id;
+            const isNearby = nearbyQuestionId === q.id;
             return (
               <QuestionDesk
                 key={q.id}
@@ -351,7 +357,7 @@ export const SchoolFloor: React.FC = () => {
           {allFloorQuestionsSolved && !hasStairKey && !isGateUnlocked && (
             <KeyItem
               position={[0, 1.0, -44]}
-              isNearby={nearbyInteractable?.type === 'stair_key'}
+              isNearby={isStairKeyNearby}
             />
           )}
 
@@ -586,7 +592,7 @@ export const SchoolFloor: React.FC = () => {
             <KeyItem
               position={[-18, 0.9, -56]}
               isMasterKey={true}
-              isNearby={nearbyInteractable?.type === 'master_key'}
+              isNearby={isMasterKeyNearby}
             />
           )}
 
@@ -600,25 +606,25 @@ export const SchoolFloor: React.FC = () => {
                 </mesh>
                 <mesh position={[0, 6.5, 0]}>
                   <sphereGeometry args={[0.26, 8, 8]} />
-                  <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={1.2} />
+                  <meshBasicMaterial color="#fef08a" />
                 </mesh>
               </group>
             ))
           )}
 
-          {/* 4 Soft Wide-Radius Area Lights for entire 96m yard (High Performance!) */}
-          {[
+          {/* Soft Wide-Radius Area Lights for yard (2 on mobile, 4 on PC) */}
+          {(isMobile ? [[0, -45], [0, -85]] : [
             [-18, -45],
             [18, -45],
             [-18, -85],
             [18, -85],
-          ].map(([lx, lz], i) => (
+          ]).map(([lx, lz], i) => (
             <pointLight
               key={`yard_quad_light_${i}`}
               position={[lx, 6.5, lz]}
               color="#fef08a"
-              intensity={1.6}
-              distance={38}
+              intensity={isMobile ? 1.4 : 1.6}
+              distance={isMobile ? 32 : 38}
               decay={2}
             />
           ))}
@@ -665,3 +671,14 @@ export const SchoolFloor: React.FC = () => {
     </group>
   );
 };
+
+export const SchoolFloor: React.FC = () => {
+  const maxPlayers = useGameStore((s) => s.maxPlayers);
+  return (
+    <>
+      <DemoTeammatesWanderer />
+      {maxPlayers > 1 ? <MultiplayerSchoolFloor /> : <SoloSchoolFloor />}
+    </>
+  );
+};
+

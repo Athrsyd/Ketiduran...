@@ -18,11 +18,13 @@ import {
   Maximize,
   Minimize,
   Gauge,
+  Lightbulb,
 } from 'lucide-react';
 
 export const HUD: React.FC = () => {
   const isMapViewer = useGameStore((s) => s.isMapViewer);
   const currentFloor = useGameStore((s) => s.currentFloor);
+  const toggleHint = useGameStore((s) => s.toggleHint);
   const graphicsQuality = useGameStore((s) => s.graphicsQuality);
   const toggleGraphicsQuality = useGameStore((s) => s.toggleGraphicsQuality);
   const solvedQuestionIds = useGameStore((s) => s.solvedQuestionIds);
@@ -185,6 +187,19 @@ export const HUD: React.FC = () => {
 
         {/* Right: Key Status & Quick Settings */}
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Mission Objective Hint Button */}
+          <button
+            onClick={toggleHint}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-400/60 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer animate-pulse hover:animate-none"
+            title="Buka Petunjuk Misi (H)"
+          >
+            <Lightbulb size={16} className="text-amber-400 fill-amber-400/30" />
+            <span>Petunjuk</span>
+            <span className="hidden sm:inline-block px-1 py-0.2 rounded bg-amber-500/30 text-[10px] font-mono">
+              H
+            </span>
+          </button>
+
           {/* Key Inventory Pill */}
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-lg ${

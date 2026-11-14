@@ -16,11 +16,14 @@ import { LandscapeAlert } from './components/ui/LandscapeAlert';
 import { FloorTransitionModal } from './components/ui/FloorTransitionModal';
 import { MapViewerOverlay } from './components/ui/MapViewerOverlay';
 import { CutscenePlayer } from './components/ui/CutscenePlayer';
+import { HintModal } from './components/ui/HintModal';
+import { WaitingRoomScreen } from './components/ui/WaitingRoomScreen';
 import { isMobileDevice, requestGameFullscreen } from './utils/fullscreen';
 
 export default function App() {
   const status = useGameStore((s) => s.status);
   const activeQuestion = useGameStore((s) => s.activeQuestion);
+  const isHintOpen = useGameStore((s) => s.isHintOpen);
   const isMapViewer = useGameStore((s) => s.isMapViewer);
   const setMapViewer = useGameStore((s) => s.setMapViewer);
 
@@ -89,6 +92,9 @@ export default function App() {
       {/* Interactive PAI Question Modal */}
       {activeQuestion !== null && <QuestionModal question={activeQuestion} />}
 
+      {/* Interactive Mission & Objective Hint Modal */}
+      {isHintOpen && <HintModal />}
+
       {/* Game Over Modal */}
       {status === 'gameover' && <GameOverModal />}
 
@@ -100,6 +106,9 @@ export default function App() {
 
       {/* Atmospheric Start Lobby */}
       {status === 'lobby' && !isMapViewer && <LobbyScreen />}
+
+      {/* Multiplayer Pre-Game Waiting Room */}
+      {status === 'waiting_room' && !isMapViewer && <WaitingRoomScreen />}
 
       {/* Automatic Landscape Orientation Warning Overlay */}
       <LandscapeAlert />

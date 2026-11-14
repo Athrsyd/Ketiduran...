@@ -59,6 +59,7 @@ export const TouchControls: React.FC = () => {
 
   // Joystick touch tracking (Pure DOM manipulation - NO React state re-renders!)
   const joystickBaseRef = useRef<HTMLDivElement>(null);
+  const joystickBaseRectRef = useRef<DOMRect | null>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const joystickTouchIdRef = useRef<number | null>(null);
 
@@ -81,6 +82,10 @@ export const TouchControls: React.FC = () => {
     if (joystickTouchIdRef.current !== null) return;
     const touch = e.changedTouches[0];
     joystickTouchIdRef.current = touch.identifier;
+    if (joystickBaseRef.current) {
+      // Cache base rect once on start - eliminates 120 forced layout reflows per second!
+      joystickBaseRectRef.current = joystickBaseRef.current.getBoundingClientRect();
+    }
     updateJoystick(touch.clientX, touch.clientY);
   };
 
@@ -98,6 +103,7 @@ export const TouchControls: React.FC = () => {
     for (let i = 0; i < e.changedTouches.length; i++) {
       if (e.changedTouches[i].identifier === joystickTouchIdRef.current) {
         joystickTouchIdRef.current = null;
+        joystickBaseRectRef.current = null;
         if (knobRef.current) {
           knobRef.current.style.transform = 'translate(0px, 0px)';
           knobRef.current.style.transition = 'transform 0.15s ease-out';
@@ -109,8 +115,8 @@ export const TouchControls: React.FC = () => {
   };
 
   const updateJoystick = (clientX: number, clientY: number) => {
-    if (!joystickBaseRef.current) return;
-    const rect = joystickBaseRef.current.getBoundingClientRect();
+    const rect = joystickBaseRectRef.current || joystickBaseRef.current?.getBoundingClientRect();
+    if (!rect) return;
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     const maxRadius = rect.width / 2;

@@ -9,7 +9,14 @@ import * as THREE from 'three';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { isPointInZone, checkAllPlayersInGatheringZone } from '../../utils/gameLogic';
-import { resolveMovement, getUpperFloorWalls, getFloor1Walls } from '../../utils/collision';
+import {
+  resolveMovement,
+  getUpperFloorWalls,
+  getFloor1Walls,
+  getMultiplayerFloorWalls,
+  getMultiplayerFloor1Walls,
+  WallAABB,
+} from '../../utils/collision';
 import { inputState } from '../../services/inputState';
 import { sound } from '../../services/soundEngine';
 import { multiplayerSync } from '../../services/multiplayerSync';
@@ -18,6 +25,47 @@ import { multiplayerSync } from '../../services/multiplayerSync';
 const _moveDir = new THREE.Vector3();
 const _forward = new THREE.Vector3();
 const _side = new THREE.Vector3();
+
+// Static desk positions and pre-filtered questions to prevent array allocations in useFrame
+const SOLO_DESK_POSITIONS: [number, number, number][] = [
+  [-11.5, 0, 7.8],
+  [7.5, 0, 7.8],
+  [7.5, 0, -12.2],
+  [-11.5, 0, -32.2],
+  [-11.5, 0, -52.2],
+];
+
+const MULTI_DESK_POSITIONS_BY_FLOOR: Record<number, [number, number, number][]> = {
+  4: [
+    [-26.2, 0, -4.0],
+    [-29.8, 0, -24.0],
+    [29.8, 0, -34.0],
+    [26.2, 0, -54.0],
+    [-11.5, 0, 7.8],
+  ],
+  3: [
+    [-27.0, 0, -10.2],
+    [-27.0, 0, -46.2],
+    [27.0, 0, -10.2],
+    [27.0, 0, -46.2],
+    [0, 0, -30],
+  ],
+  2: [
+    [-30.0, 0, -8.2],
+    [-30.0, 0, -23.2],
+    [0, 0, -30],
+    [30.0, 0, -36.2],
+    [30.0, 0, -50.2],
+  ],
+  1: [],
+};
+
+const QUESTIONS_BY_FLOOR: Record<number, typeof PAI_QUESTIONS> = {
+  1: [],
+  2: PAI_QUESTIONS.filter((q) => q.floor === 2),
+  3: PAI_QUESTIONS.filter((q) => q.floor === 3),
+  4: PAI_QUESTIONS.filter((q) => q.floor === 4),
+};
 
 export const PlayerController: React.FC = () => {
   const { camera, gl } = useThree();
@@ -31,6 +79,12 @@ export const PlayerController: React.FC = () => {
   // Flashlight and SpotLight Target Ref
   const spotTargetRef = useRef<THREE.Object3D>(null);
   const spotLightRef = useRef<THREE.SpotLight>(null);
+  const fillLightRef = useRef<THREE.PointLight>(null);
+
+  // Performance Optimization Refs (0 unnecessary React state changes)
+  const posThrottleRef = useRef<number>(0);
+  const lastInteractableIdRef = useRef<string>('');
+  const lastInteractableTypeRef = useRef<string>('');
 
   // Key event listeners
   useEffect(() => {
@@ -46,6 +100,11 @@ export const PlayerController: React.FC = () => {
       // Flashlight toggle 'F'
       if (e.code === 'KeyF' || e.key.toLowerCase() === 'f') {
         useGameStore.getState().toggleFlashlight();
+      }
+
+      // Mission Hint toggle 'H'
+      if (e.code === 'KeyH' || e.key.toLowerCase() === 'h') {
+        useGameStore.getState().toggleHint();
       }
     };
 
@@ -97,10 +156,10 @@ export const PlayerController: React.FC = () => {
     };
   }, [gl]);
 
-  // Release pointer lock when question opens or game ends
+  // Release pointer lock when question opens, hint opens, or game ends
   useEffect(() => {
     const unsub = useGameStore.subscribe((state) => {
-      if (state.activeQuestion !== null || state.status !== 'playing') {
+      if (state.activeQuestion !== null || state.isHintOpen || state.status !== 'playing') {
         if (document.pointerLockElement) {
           try {
             document.exitPointerLock();
@@ -181,8 +240,8 @@ export const PlayerController: React.FC = () => {
     const store = useGameStore.getState();
     if (store.status !== 'playing') return;
 
-    // Freeze player movement when solving question
-    if (store.activeQuestion !== null) return;
+    // Freeze player movement when solving question or reading hint
+    if (store.activeQuestion !== null || store.isHintOpen) return;
 
     // Handle Teleport Target from Map Viewer
     if (store.teleportTarget) {
@@ -252,25 +311,46 @@ export const PlayerController: React.FC = () => {
         } else {
           // Exact AABB wall collision with separate X and Z sliding
           const playerRadius = 0.35;
-          let walls: ReturnType<typeof getUpperFloorWalls>;
+          const isMultiplayer = store.maxPlayers > 1;
+          let walls: WallAABB[];
           let bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
 
-          if (store.currentFloor > 1) {
-            walls = getUpperFloorWalls(store.isGateUnlocked);
-            bounds = {
-              minX: -16.0,
-              maxX: 16.0,
-              minZ: store.isGateUnlocked ? -74.0 : -69.8,
-              maxZ: 13.8,
-            };
+          if (isMultiplayer) {
+            if (store.currentFloor > 1) {
+              walls = getMultiplayerFloorWalls(store.currentFloor, store.isGateUnlocked);
+              bounds = {
+                minX: -38.0,
+                maxX: 38.0,
+                minZ: -74.0,
+                maxZ: 14.0,
+              };
+            } else {
+              walls = getMultiplayerFloor1Walls(store.isExitGateUnlocked);
+              bounds = {
+                minX: -70.0,
+                maxX: 70.0,
+                minZ: -156.0,
+                maxZ: 14.0,
+              };
+            }
           } else {
-            walls = getFloor1Walls(store.isExitGateUnlocked);
-            bounds = {
-              minX: -47.5,
-              maxX: 47.5,
-              minZ: store.isExitGateUnlocked ? -108.0 : -103.5,
-              maxZ: 13.8,
-            };
+            if (store.currentFloor > 1) {
+              walls = getUpperFloorWalls(store.isGateUnlocked);
+              bounds = {
+                minX: -16.0,
+                maxX: 16.0,
+                minZ: -74.0,
+                maxZ: 14.0,
+              };
+            } else {
+              walls = getFloor1Walls(store.isExitGateUnlocked);
+              bounds = {
+                minX: -48.0,
+                maxX: 48.0,
+                minZ: -108.0,
+                maxZ: 14.0,
+              };
+            }
           }
 
           const [validX, validZ] = resolveMovement(
@@ -300,7 +380,13 @@ export const PlayerController: React.FC = () => {
       camera.rotation.set(0, yawRef.current, 0, 'YXZ');
     }
 
-    // Orient Flashlight beam
+    // Orient Flashlight beam & direct position updates
+    if (spotLightRef.current) {
+      spotLightRef.current.position.set(currentPos.x, 1.55, currentPos.z);
+    }
+    if (fillLightRef.current) {
+      fillLightRef.current.position.set(currentPos.x, 1.5, currentPos.z);
+    }
     if (spotTargetRef.current && spotLightRef.current) {
       spotTargetRef.current.position.set(
         currentPos.x - Math.sin(yawRef.current) * 14,
@@ -311,24 +397,47 @@ export const PlayerController: React.FC = () => {
     }
 
     // 2. Check Gathering Zone in front of the gate
+    const isMultiplayer = store.maxPlayers > 1;
     let inZone = false;
-    if (store.currentFloor > 1) {
-      if (store.isGateUnlocked) {
-        inZone = isPointInZone(currentPos.x, currentPos.z, {
-          minX: -3.0,
-          maxX: 3.0,
-          minZ: -69.5,
-          maxZ: -66.0,
-        });
+    if (isMultiplayer) {
+      if (store.currentFloor > 1) {
+        if (store.isGateUnlocked) {
+          inZone = isPointInZone(currentPos.x, currentPos.z, {
+            minX: -3.5,
+            maxX: 3.5,
+            minZ: -69.5,
+            maxZ: -66.0,
+          });
+        }
+      } else {
+        if (store.isExitGateUnlocked) {
+          inZone = isPointInZone(currentPos.x, currentPos.z, {
+            minX: -4.5,
+            maxX: 4.5,
+            minZ: -147.5,
+            maxZ: -143.5,
+          });
+        }
       }
     } else {
-      if (store.isExitGateUnlocked) {
-        inZone = isPointInZone(currentPos.x, currentPos.z, {
-          minX: -4.2,
-          maxX: 4.2,
-          minZ: -103.5,
-          maxZ: -99.5,
-        });
+      if (store.currentFloor > 1) {
+        if (store.isGateUnlocked) {
+          inZone = isPointInZone(currentPos.x, currentPos.z, {
+            minX: -3.0,
+            maxX: 3.0,
+            minZ: -69.5,
+            maxZ: -66.0,
+          });
+        }
+      } else {
+        if (store.isExitGateUnlocked) {
+          inZone = isPointInZone(currentPos.x, currentPos.z, {
+            minX: -4.2,
+            maxX: 4.2,
+            minZ: -103.5,
+            maxZ: -99.5,
+          });
+        }
       }
     }
 
@@ -337,18 +446,15 @@ export const PlayerController: React.FC = () => {
     let minDist = 3.4;
 
     if (store.currentFloor > 1) {
-      // Check 5 desks inside the expanded classrooms
-      const floorQuestions = PAI_QUESTIONS.filter((q) => q.floor === store.currentFloor);
-      const deskPositions = [
-        [-11.5, 0, 7.8],
-        [7.5, 0, 7.8],
-        [7.5, 0, -12.2],
-        [-11.5, 0, -32.2],
-        [-11.5, 0, -52.2],
-      ];
+      // Check 5 desks inside the expanded classrooms using zero-allocation cached structures
+      const floorQuestions = QUESTIONS_BY_FLOOR[store.currentFloor] || [];
+      const deskList = isMultiplayer
+        ? (MULTI_DESK_POSITIONS_BY_FLOOR[store.currentFloor] || [])
+        : SOLO_DESK_POSITIONS;
 
-      floorQuestions.forEach((q, idx) => {
-        const dpos = deskPositions[idx];
+      for (let idx = 0; idx < floorQuestions.length; idx++) {
+        const q = floorQuestions[idx];
+        const dpos = deskList[idx];
         if (dpos) {
           const dist = Math.hypot(currentPos.x - dpos[0], currentPos.z - dpos[2]);
           const isSolved = store.solvedQuestionIds.includes(q.id);
@@ -362,12 +468,15 @@ export const PlayerController: React.FC = () => {
             };
           }
         }
-      });
+      }
 
-      // Check Stair Key (spawns in corridor at Z = -44)
+      // Check Stair Key
       const allSolved = floorQuestions.every((q) => store.solvedQuestionIds.includes(q.id));
       if (allSolved && !store.hasStairKey && !store.isGateUnlocked) {
-        const keyDist = Math.hypot(currentPos.x - 0, currentPos.z - (-44));
+        const keyPos = isMultiplayer
+          ? (store.currentFloor === 3 ? [0, 2] : [0, -30])
+          : [0, -44];
+        const keyDist = Math.hypot(currentPos.x - keyPos[0], currentPos.z - keyPos[1]);
         if (keyDist < 2.8 && keyDist < minDist) {
           minDist = keyDist;
           closestInteractable = {
@@ -391,9 +500,12 @@ export const PlayerController: React.FC = () => {
         }
       }
     } else {
-      // Floor 1: Check Master Key in Pos Satpam ([-18, 0.9, -56])
+      // Floor 1: Check Master Key
+      const masterKeyPos = isMultiplayer ? [-22, -85] : [-18, -56];
+      const exitGateZ = isMultiplayer ? -148 : -104;
+
       if (!store.hasMasterKey) {
-        const mKeyDist = Math.hypot(currentPos.x - (-18), currentPos.z - (-56));
+        const mKeyDist = Math.hypot(currentPos.x - masterKeyPos[0], currentPos.z - masterKeyPos[1]);
         if (mKeyDist < 3.2 && mKeyDist < minDist) {
           minDist = mKeyDist;
           closestInteractable = {
@@ -404,9 +516,9 @@ export const PlayerController: React.FC = () => {
         }
       }
 
-      // Floor 1: Check Exit Gate ([0, 0, -104])
+      // Floor 1: Check Exit Gate
       if (store.hasMasterKey && !store.isExitGateUnlocked) {
-        const eGateDist = Math.hypot(currentPos.x - 0, currentPos.z - (-104));
+        const eGateDist = Math.hypot(currentPos.x - 0, currentPos.z - exitGateZ);
         if (eGateDist < 4.2 && eGateDist < minDist) {
           minDist = eGateDist;
           closestInteractable = {
@@ -418,24 +530,45 @@ export const PlayerController: React.FC = () => {
       }
     }
 
-    store.setNearbyInteractable(closestInteractable);
+    // 3. Proximity interactable update (ONLY on actual id/type change - eliminates 60 re-renders/sec!)
+    const interactableId = closestInteractable?.id || '';
+    const interactableType = closestInteractable?.type || '';
+    if (
+      interactableId !== lastInteractableIdRef.current ||
+      interactableType !== lastInteractableTypeRef.current
+    ) {
+      lastInteractableIdRef.current = interactableId;
+      lastInteractableTypeRef.current = interactableType;
+      store.setNearbyInteractable(closestInteractable);
+    }
 
-    // 4. Update my position & zone status in store
-    store.setMyPosition(
-      [currentPos.x, currentPos.y, currentPos.z],
-      yawRef.current,
-      inZone
-    );
-
-    // 5. Team Gathering Check:
-    if (!store.isMapViewer) {
-      const teammatesOnFloor = Object.values(store.teammates).filter(
-        (tm) => tm.currentFloor === store.currentFloor
+    // 4. Update my position & zone status in store (Throttled to 20Hz - saves 66% store overhead)
+    posThrottleRef.current += delta;
+    if (posThrottleRef.current > 0.05) {
+      posThrottleRef.current = 0;
+      store.setMyPosition(
+        [currentPos.x, currentPos.y, currentPos.z],
+        yawRef.current,
+        inZone
       );
-      const playersInZoneList = [inZone, ...teammatesOnFloor.map((tm) => tm.isInGatheringZone)];
-      const gatherStatus = checkAllPlayersInGatheringZone(playersInZoneList);
+    }
 
-      if (gatherStatus.allInZone) {
+    // 5. Team Gathering Check (Instant evaluation for Solo - eliminates array allocation)
+    if (!store.isMapViewer) {
+      const isSolo = store.maxPlayers === 1;
+      let allInZone = false;
+
+      if (isSolo) {
+        allInZone = inZone;
+      } else {
+        const teammatesOnFloor = Object.values(store.teammates).filter(
+          (tm) => tm.currentFloor === store.currentFloor
+        );
+        const playersInZoneList = [inZone, ...teammatesOnFloor.map((tm) => tm.isInGatheringZone)];
+        allInZone = checkAllPlayersInGatheringZone(playersInZoneList).allInZone;
+      }
+
+      if (allInZone) {
         if (store.currentFloor > 1 && store.isGateUnlocked) {
           const nextFloor = store.currentFloor - 1;
           store.transitionToNextFloor(nextFloor);
@@ -485,7 +618,6 @@ export const PlayerController: React.FC = () => {
       {/* Realistic Player Flashlight with Aim Target */}
       <spotLight
         ref={spotLightRef}
-        position={[camera.position.x, 1.55, camera.position.z]}
         color="#ffffff"
         intensity={flashlightOn ? 3.0 : 0}
         angle={Math.PI / 5}
@@ -496,7 +628,7 @@ export const PlayerController: React.FC = () => {
 
       {/* Subtle Personal Ambient Fill Light around player */}
       <pointLight
-        position={[camera.position.x, 1.5, camera.position.z]}
+        ref={fillLightRef}
         color="#fef08a"
         intensity={flashlightOn ? 0.35 : 0.08}
         distance={5}

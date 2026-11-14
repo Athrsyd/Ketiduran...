@@ -52,10 +52,13 @@ export interface PlayerData {
   id: string;
   name: string;
   color: string;
+  gender?: 'male' | 'female';
   position: [number, number, number];
   yaw: number;
   currentFloor: number;
   isInGatheringZone: boolean;
+  isHost?: boolean;
+  isReady?: boolean;
   lastActive: number;
 }
 
@@ -69,12 +72,14 @@ export interface RobotState {
 
 export interface RoomConfig {
   roomCode: string;
-  maxPlayers: 1 | 2 | 3;
+  gameMode: 'solo' | 'multiplayer';
+  maxPlayers: number;
   playerName: string;
   playerColor: string;
+  gender?: 'male' | 'female';
 }
 
-export type GameStatus = 'lobby' | 'cutscene' | 'playing' | 'gameover' | 'victory';
+export type GameStatus = 'lobby' | 'waiting_room' | 'cutscene' | 'playing' | 'gameover' | 'victory';
 
 export interface SyncMessage {
   type:
@@ -82,6 +87,8 @@ export interface SyncMessage {
     | 'PLAYER_HEARTBEAT'
     | 'PLAYER_MOVE'
     | 'PLAYER_LEAVE'
+    | 'PLAYER_READY'
+    | 'GAME_START'
     | 'QUESTION_SOLVED'
     | 'KEY_COLLECTED'
     | 'GATE_UNLOCKED'
@@ -95,3 +102,14 @@ export interface SyncMessage {
   payload?: any;
   timestamp: number;
 }
+
+export interface LeaderboardEntry {
+  id?: string;
+  playerName: string;
+  roomCode: string;
+  score: number;
+  timeSeconds: number;
+  mode: 'solo' | 'multiplayer';
+  completedAt?: string;
+}
+

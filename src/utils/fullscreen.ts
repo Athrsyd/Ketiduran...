@@ -8,11 +8,10 @@
  */
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
-  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-  const isSmallScreen = window.innerWidth <= 1024 && window.innerHeight <= 900;
-  return isMobileUA || (isTouch && isSmallScreen);
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const isTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent);
+  return Boolean(isMobileUA || isTouch);
 }
 
 /**

@@ -16,7 +16,7 @@ interface StairGateProps {
   isExitGate?: boolean;
 }
 
-export const StairGate: React.FC<StairGateProps> = ({
+export const StairGate = React.memo<StairGateProps>(({
   position,
   isUnlocked,
   hasKey,
@@ -33,6 +33,9 @@ export const StairGate: React.FC<StairGateProps> = ({
   const wingWidth = halfWidth - 0.25;
 
   useFrame((_, delta) => {
+    // Only animate when gate needs to swing or zone pulses
+    if (!isUnlocked && gateLeftRef.current?.rotation.y === 0) return;
+
     // Smooth gate swing open when unlocked
     const targetAngle = isUnlocked ? Math.PI * 0.45 : 0;
     if (gateLeftRef.current) {
@@ -205,4 +208,4 @@ export const StairGate: React.FC<StairGateProps> = ({
       )}
     </group>
   );
-};
+});

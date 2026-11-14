@@ -22,10 +22,13 @@ export interface GameState {
   status: GameStatus;
   currentFloor: number;
   roomCode: string;
-  maxPlayers: 1 | 2 | 3;
+  maxPlayers: number;
+  isHost: boolean;
+  isReady: boolean;
   myId: string;
   myName: string;
   myColor: string;
+  myGender: 'male' | 'female';
   myPosition: [number, number, number];
   myYaw: number;
   myIsInGatheringZone: boolean;
@@ -60,10 +63,28 @@ export interface GameState {
   viewerCameraMode: 'walk' | 'fly' | 'overview';
   viewerNoclip: boolean;
   teleportTarget: [number, number, number] | null;
+  demoTeammatesActive: boolean;
+  toggleDemoTeammates: () => void;
+
+  // In-Game Objective & Mission Hint Modal
+  isHintOpen: boolean;
+
+  // Supabase Cloud Realtime connection status
+  isSupabaseConnected: boolean;
 
   // Actions
-  startSolo: (name: string, color: string, skipCutscene?: boolean) => void;
-  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3, skipCutscene?: boolean) => void;
+  setSupabaseConnected: (connected: boolean) => void;
+  setMyGender: (gender: 'male' | 'female') => void;
+  toggleHint: () => void;
+  closeHint: () => void;
+  setMaxPlayers: (max: number) => void;
+  createWaitingRoom: (roomCode: string, name: string, color: string, gender?: 'male' | 'female') => void;
+  joinWaitingRoom: (roomCode: string, name: string, color: string, gender?: 'male' | 'female') => void;
+  toggleReady: () => void;
+  startMultiplayerGame: (broadcast?: boolean) => void;
+  leaveWaitingRoom: () => void;
+  startSolo: (name: string, color: string, gender?: 'male' | 'female', skipCutscene?: boolean) => void;
+  joinRoom: (roomCode: string, name: string, color: string, gender?: 'male' | 'female', maxPlayers?: number, skipCutscene?: boolean) => void;
   finishCutscene: () => void;
   playCutsceneStandalone: () => void;
   toggleGraphicsQuality: () => void;
@@ -130,14 +151,168 @@ function getFloorTransitionInfo(targetFloor: number): { title: string; desc: str
   }
 }
 
+export function getDemoTeammatesForFloor(floor: number): Record<string, PlayerData> {
+  switch (floor) {
+    case 4:
+      return {
+        demo_budi: {
+          id: 'demo_budi',
+          name: 'Budi (RPL)',
+          gender: 'male',
+          color: '#3b82f6',
+          position: [-18.0, 1.6, -16.0],
+          yaw: Math.PI / 2,
+          currentFloor: 4,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_siti: {
+          id: 'demo_siti',
+          name: 'Siti (TKJ)',
+          gender: 'female',
+          color: '#10b981',
+          position: [18.0, 1.6, -46.0],
+          yaw: -Math.PI / 2,
+          currentFloor: 4,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_rian: {
+          id: 'demo_rian',
+          name: 'Rian (DKV)',
+          gender: 'male',
+          color: '#f59e0b',
+          position: [0, 1.6, -28.0],
+          yaw: 0,
+          currentFloor: 4,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+      };
+    case 3:
+      return {
+        demo_budi: {
+          id: 'demo_budi',
+          name: 'Budi (RPL)',
+          gender: 'male',
+          color: '#3b82f6',
+          position: [0, 1.6, -30.0],
+          yaw: 0,
+          currentFloor: 3,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_siti: {
+          id: 'demo_siti',
+          name: 'Siti (TKJ)',
+          gender: 'female',
+          color: '#10b981',
+          position: [-16.0, 1.6, -30.0],
+          yaw: Math.PI,
+          currentFloor: 3,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_rian: {
+          id: 'demo_rian',
+          name: 'Rian (DKV)',
+          gender: 'male',
+          color: '#f59e0b',
+          position: [16.0, 1.6, -35.0],
+          yaw: 0,
+          currentFloor: 3,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+      };
+    case 2:
+      return {
+        demo_budi: {
+          id: 'demo_budi',
+          name: 'Budi (RPL)',
+          gender: 'male',
+          color: '#3b82f6',
+          position: [-18.5, 1.6, -16.0],
+          yaw: 0,
+          currentFloor: 2,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_siti: {
+          id: 'demo_siti',
+          name: 'Siti (TKJ)',
+          gender: 'female',
+          color: '#10b981',
+          position: [0, 1.6, -30.0],
+          yaw: Math.PI / 2,
+          currentFloor: 2,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_rian: {
+          id: 'demo_rian',
+          name: 'Rian (DKV)',
+          gender: 'male',
+          color: '#f59e0b',
+          position: [18.5, 1.6, -45.0],
+          yaw: 0,
+          currentFloor: 2,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+      };
+    case 1:
+    default:
+      return {
+        demo_budi: {
+          id: 'demo_budi',
+          name: 'Budi (RPL)',
+          gender: 'male',
+          color: '#3b82f6',
+          position: [26.0, 1.6, -45.0],
+          yaw: -Math.PI / 2,
+          currentFloor: 1,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_siti: {
+          id: 'demo_siti',
+          name: 'Siti (TKJ)',
+          gender: 'female',
+          color: '#10b981',
+          position: [-26.0, 1.6, -82.0],
+          yaw: Math.PI / 2,
+          currentFloor: 1,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+        demo_rian: {
+          id: 'demo_rian',
+          name: 'Rian (DKV)',
+          gender: 'male',
+          color: '#f59e0b',
+          position: [0, 1.6, -45.0],
+          yaw: 0,
+          currentFloor: 1,
+          isInGatheringZone: false,
+          lastActive: Date.now(),
+        },
+      };
+  }
+}
+
 export const useGameStore = create<GameState>((set, get) => ({
   status: 'lobby',
   currentFloor: 4,
   roomCode: 'KETIDURAN-11',
   maxPlayers: 1,
+  isHost: false,
+  isReady: false,
   myId: generateId(),
   myName: 'Siswa SMK 1',
   myColor: '#38bdf8', // Sky blue
+  myGender: 'male',
+  setMyGender: (gender: 'male' | 'female') => set({ myGender: gender }),
   myPosition: [0, 1.6, 10.0],
   myYaw: 0,
   myIsInGatheringZone: false,
@@ -170,8 +345,85 @@ export const useGameStore = create<GameState>((set, get) => ({
   viewerCameraMode: 'walk',
   viewerNoclip: false,
   teleportTarget: null,
+  demoTeammatesActive: false,
+  isHintOpen: false,
+  isSupabaseConnected: false,
 
-  startSolo: (name: string, color: string, skipCutscene = false) => {
+  setSupabaseConnected: (connected: boolean) => {
+    set({ isSupabaseConnected: connected });
+  },
+
+  createWaitingRoom: (roomCode: string, name: string, color: string, gender: 'male' | 'female' = 'male') => {
+    const finalRoomCode = roomCode.trim().toUpperCase() || 'SMK-' + Math.floor(10 + Math.random() * 90);
+    set({
+      status: 'waiting_room',
+      roomCode: finalRoomCode,
+      maxPlayers: 2, // Flag indicating Multiplayer mode (> 1)
+      isHost: true,
+      isReady: true,
+      myName: name.trim() || 'Ketua Kelas',
+      myColor: color,
+      myGender: gender,
+      teammates: {},
+    });
+  },
+
+  joinWaitingRoom: (roomCode: string, name: string, color: string, gender: 'male' | 'female' = 'male') => {
+    const finalRoomCode = roomCode.trim().toUpperCase() || 'KELAS-11';
+    set({
+      status: 'waiting_room',
+      roomCode: finalRoomCode,
+      maxPlayers: 2, // Flag indicating Multiplayer mode (> 1)
+      isHost: false,
+      isReady: false,
+      myName: name.trim() || 'Siswa SMK',
+      myColor: color,
+      myGender: gender,
+      teammates: {},
+    });
+  },
+
+  toggleReady: () => {
+    const nextReady = !get().isReady;
+    set({ isReady: nextReady });
+  },
+
+  startMultiplayerGame: (broadcast = true) => {
+    const spawnPos = getFloorSpawnPosition(4);
+    const info = getFloorTransitionInfo(4);
+
+    set({
+      status: 'cutscene',
+      currentFloor: 4,
+      myPosition: spawnPos,
+      myYaw: 0,
+      myIsInGatheringZone: false,
+      solvedQuestionIds: [],
+      activeQuestion: null,
+      hasStairKey: false,
+      isGateUnlocked: false,
+      hasMasterKey: false,
+      isExitGateUnlocked: false,
+      gameOverReason: '',
+      isMapViewer: false,
+      mapTransitionPopup: null,
+    });
+  },
+
+  setMaxPlayers: (max: number) => {
+    set({ maxPlayers: max });
+  },
+
+  leaveWaitingRoom: () => {
+    set({
+      status: 'lobby',
+      isHost: false,
+      isReady: false,
+      teammates: {},
+    });
+  },
+
+  startSolo: (name: string, color: string, gender: 'male' | 'female' = 'male', skipCutscene = false) => {
     const spawnPos = getFloorSpawnPosition(4);
     const info = getFloorTransitionInfo(4);
 
@@ -184,8 +436,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentFloor: 4,
       roomCode: 'SOLO-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
       maxPlayers: 1,
-      myName: name.trim() || 'Siswa SMK',
+      myName: name.trim() || (gender === 'female' ? 'Siswi SMK' : 'Siswa SMK'),
       myColor: color,
+      myGender: gender,
       myPosition: spawnPos,
       myYaw: 0,
       myIsInGatheringZone: false,
@@ -210,7 +463,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  joinRoom: (roomCode: string, name: string, color: string, maxPlayers: 1 | 2 | 3, skipCutscene = false) => {
+  joinRoom: (roomCode: string, name: string, color: string, gender: 'male' | 'female' = 'male', maxPlayers: number = 3, skipCutscene = false) => {
     const spawnPos = getFloorSpawnPosition(4);
     const info = getFloorTransitionInfo(4);
 
@@ -223,8 +476,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentFloor: 4,
       roomCode: roomCode.trim().toUpperCase() || 'KELAS-11',
       maxPlayers,
-      myName: name.trim() || 'Siswa SMK',
+      myName: name.trim() || (gender === 'female' ? 'Siswi SMK' : 'Siswa SMK'),
       myColor: color,
+      myGender: gender,
       myPosition: spawnPos,
       myYaw: 0,
       myIsInGatheringZone: false,
@@ -277,10 +531,24 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setMyPosition: (pos, yaw, inZone) => {
-    set({
-      myPosition: pos,
-      myYaw: yaw,
-      myIsInGatheringZone: inZone,
+    set((state) => {
+      const prev = state.myPosition;
+      const dx = prev[0] - pos[0];
+      const dy = prev[1] - pos[1];
+      const dz = prev[2] - pos[2];
+      const dyaw = Math.abs(state.myYaw - yaw);
+      if (
+        dx * dx + dy * dy + dz * dz < 0.005 &&
+        dyaw < 0.03 &&
+        state.myIsInGatheringZone === inZone
+      ) {
+        return state;
+      }
+      return {
+        myPosition: pos,
+        myYaw: yaw,
+        myIsInGatheringZone: inZone,
+      };
     });
   },
 
@@ -299,6 +567,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       delete next[id];
       return { teammates: next };
     });
+  },
+
+  toggleHint: () => {
+    sound.playInteract();
+    set((state) => ({ isHintOpen: !state.isHintOpen }));
+  },
+
+  closeHint: () => {
+    set({ isHintOpen: false });
   },
 
   openQuestion: (q) => {
@@ -438,7 +715,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setNearbyInteractable: (interactable) => {
-    set({ nearbyInteractable: interactable });
+    set((state) => {
+      const prev = state.nearbyInteractable;
+      if (!prev && !interactable) return state;
+      if (
+        prev &&
+        interactable &&
+        prev.type === interactable.type &&
+        prev.id === interactable.id &&
+        prev.label === interactable.label
+      ) {
+        return state;
+      }
+      return { nearbyInteractable: interactable };
+    });
   },
 
   toggleFlashlight: () => {
@@ -493,11 +783,19 @@ export const useGameStore = create<GameState>((set, get) => ({
         activeQuestion: null,
       });
     } else {
-      set({
-        isMapViewer: false,
-        status: 'lobby',
-        viewerCameraMode: 'walk',
-        viewerNoclip: false,
+      set((state) => {
+        const next = { ...state.teammates };
+        delete next['demo_budi'];
+        delete next['demo_siti'];
+        delete next['demo_rian'];
+        return {
+          isMapViewer: false,
+          status: 'lobby',
+          viewerCameraMode: 'walk',
+          viewerNoclip: false,
+          demoTeammatesActive: false,
+          teammates: next,
+        };
       });
     }
   },
@@ -505,7 +803,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   setViewerFloor: (floor) => {
     const spawnPos = getFloorSpawnPosition(floor);
     const info = getFloorTransitionInfo(floor);
-    set({
+    const isDemoActive = get().demoTeammatesActive;
+    const demos = isDemoActive ? getDemoTeammatesForFloor(floor) : {};
+
+    set((state) => ({
       currentFloor: floor,
       myPosition: spawnPos,
       hasStairKey: true,
@@ -513,6 +814,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasMasterKey: true,
       isExitGateUnlocked: true,
       teleportTarget: spawnPos,
+      teammates: isDemoActive ? { ...state.teammates, ...demos } : state.teammates,
       mapTransitionPopup: {
         show: true,
         fromFloor: floor,
@@ -520,7 +822,29 @@ export const useGameStore = create<GameState>((set, get) => ({
         title: `[TEST MODE] ${info.title}`,
         desc: `Melihat isi map lantai ${floor}. Kamu dapat bebas menjelajah atau berganti kamera.`,
       },
-    });
+    }));
+  },
+
+  toggleDemoTeammates: () => {
+    const current = get().demoTeammatesActive;
+    if (current) {
+      set((state) => {
+        const next = { ...state.teammates };
+        delete next['demo_budi'];
+        delete next['demo_siti'];
+        delete next['demo_rian'];
+        return { demoTeammatesActive: false, teammates: next };
+      });
+    } else {
+      const demos = getDemoTeammatesForFloor(get().currentFloor);
+      set((state) => ({
+        demoTeammatesActive: true,
+        teammates: {
+          ...state.teammates,
+          ...demos,
+        },
+      }));
+    }
   },
 
   setViewerCameraMode: (mode) => {
