@@ -6,6 +6,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useGameStore } from '../../store/gameStore';
 
 interface StairGateProps {
   position: [number, number, number];
@@ -24,6 +25,8 @@ export const StairGate = React.memo<StairGateProps>(({
   totalPlayers,
   isExitGate = false,
 }) => {
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
   const gateLeftRef = useRef<THREE.Group>(null);
   const gateRightRef = useRef<THREE.Group>(null);
   const zoneRef = useRef<THREE.Mesh>(null);
@@ -84,13 +87,15 @@ export const StairGate = React.memo<StairGateProps>(({
         <boxGeometry args={[isExitGate ? 4.8 : 3.2, 0.5, 0.06]} />
         <meshStandardMaterial color={isExitGate ? '#15803d' : '#0f172a'} roughness={0.7} />
       </mesh>
-      {/* Illuminated Exit Lamp */}
-      <pointLight
-        position={[0, 3.65, 0.4]}
-        color={isExitGate ? '#4ade80' : '#38bdf8'}
-        intensity={1.2}
-        distance={6}
-      />
+      {/* Illuminated Exit Lamp (Desktop PC only) */}
+      {!isMobile && (
+        <pointLight
+          position={[0, 3.65, 0.4]}
+          color={isExitGate ? '#4ade80' : '#38bdf8'}
+          intensity={1.2}
+          distance={6}
+        />
+      )}
 
       {/* Left Gate Wing */}
       <group ref={gateLeftRef} position={[-halfWidth + 0.2, 0, 0]}>
@@ -162,12 +167,14 @@ export const StairGate = React.memo<StairGateProps>(({
             <sphereGeometry args={[0.06, 16, 16]} />
             <meshBasicMaterial color={hasKey ? '#facc15' : '#ef4444'} />
           </mesh>
-          <pointLight
-            position={[0, 0, 0.2]}
-            color={hasKey ? '#facc15' : '#ef4444'}
-            intensity={1.4}
-            distance={3}
-          />
+          {!isMobile && (
+            <pointLight
+              position={[0, 0, 0.2]}
+              color={hasKey ? '#facc15' : '#ef4444'}
+              intensity={1.4}
+              distance={3}
+            />
+          )}
         </group>
       )}
 
@@ -203,7 +210,9 @@ export const StairGate = React.memo<StairGateProps>(({
             />
           </mesh>
 
-          <pointLight position={[0, 1.0, 0]} color="#4ade80" intensity={2} distance={6} />
+          {!isMobile && (
+            <pointLight position={[0, 1.0, 0]} color="#4ade80" intensity={2} distance={6} />
+          )}
         </group>
       )}
     </group>

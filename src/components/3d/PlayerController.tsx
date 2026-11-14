@@ -610,6 +610,8 @@ export const PlayerController: React.FC = () => {
   });
 
   const flashlightOn = useGameStore((s) => s.flashlightOn);
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
 
   return (
     <>
@@ -619,20 +621,22 @@ export const PlayerController: React.FC = () => {
       <spotLight
         ref={spotLightRef}
         color="#ffffff"
-        intensity={flashlightOn ? 3.0 : 0}
+        intensity={flashlightOn ? (isMobile ? 2.6 : 3.0) : 0}
         angle={Math.PI / 5}
         penumbra={0.45}
-        distance={26}
+        distance={isMobile ? 18 : 26}
         decay={2}
       />
 
-      {/* Subtle Personal Ambient Fill Light around player */}
-      <pointLight
-        ref={fillLightRef}
-        color="#fef08a"
-        intensity={flashlightOn ? 0.35 : 0.08}
-        distance={5}
-      />
+      {/* Subtle Personal Ambient Fill Light around player (Desktop PC only) */}
+      {!isMobile && (
+        <pointLight
+          ref={fillLightRef}
+          color="#fef08a"
+          intensity={flashlightOn ? 0.35 : 0.08}
+          distance={5}
+        />
+      )}
     </>
   );
 };

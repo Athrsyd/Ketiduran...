@@ -6,6 +6,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useGameStore } from '../../store/gameStore';
 
 interface KeyItemProps {
   position: [number, number, number];
@@ -18,6 +19,8 @@ export const KeyItem = React.memo<KeyItemProps>(({
   isMasterKey = false,
   isNearby,
 }) => {
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.Mesh>(null);
 
@@ -90,12 +93,14 @@ export const KeyItem = React.memo<KeyItemProps>(({
         />
       </mesh>
 
-      {/* Point light */}
-      <pointLight
-        color={isMasterKey ? '#fb923c' : '#fde047'}
-        intensity={isNearby ? 2.5 : 1.5}
-        distance={4}
-      />
+      {/* Point light (on mobile only active when player is nearby) */}
+      {(!isMobile || isNearby) && (
+        <pointLight
+          color={isMasterKey ? '#fb923c' : '#fde047'}
+          intensity={isNearby ? 2.5 : 1.5}
+          distance={isMobile ? 3 : 4}
+        />
+      )}
     </group>
   );
 });

@@ -7,6 +7,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Question } from '../../types/game';
+import { useGameStore } from '../../store/gameStore';
 
 interface QuestionDeskProps {
   question: Question;
@@ -23,6 +24,8 @@ export const QuestionDesk = React.memo<QuestionDeskProps>(({
   isSolved,
   isNearby,
 }) => {
+  const graphicsQuality = useGameStore((s) => s.graphicsQuality);
+  const isMobile = graphicsQuality === 'mobile';
   const glowRef = useRef<THREE.Mesh>(null);
   const paperRef = useRef<THREE.Group>(null);
 
@@ -117,13 +120,15 @@ export const QuestionDesk = React.memo<QuestionDeskProps>(({
           />
         </mesh>
 
-        {/* Subtle point light over the desk */}
-        <pointLight
-          position={[0, 0.5, 0]}
-          color={isSolved ? '#4ade80' : '#fde047'}
-          intensity={isNearby ? 1.5 : 0.8}
-          distance={3}
-        />
+        {/* Subtle point light over the desk (on mobile only illuminated when player is nearby) */}
+        {(!isMobile || isNearby) && (
+          <pointLight
+            position={[0, 0.5, 0]}
+            color={isSolved ? '#4ade80' : '#fde047'}
+            intensity={isNearby ? 1.5 : 0.8}
+            distance={isMobile ? 2.5 : 3}
+          />
+        )}
       </group>
     </group>
   );

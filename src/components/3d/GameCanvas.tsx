@@ -27,10 +27,11 @@ export const GameCanvas: React.FC = () => {
       <Canvas
         frameloop={isCutscene ? 'never' : 'always'}
         shadows={!isMobile}
-        dpr={isMobile ? [0.65, 0.85] : [1, 1.25]}
-        camera={{ position: [0, 1.6, 10], fov: 75, near: 0.1, far: isMobile ? 65 : 110 }}
+        dpr={isMobile ? 0.65 : [1, 1.25]}
+        camera={{ position: [0, 1.6, 10], fov: 75, near: 0.1, far: isMobile ? 42 : 110 }}
         gl={{
           antialias: !isMobile,
+          alpha: false,
           powerPreference: 'high-performance',
           precision: isMobile ? 'mediump' : 'highp',
           stencil: false,
@@ -43,8 +44,8 @@ export const GameCanvas: React.FC = () => {
           attach="fog"
           args={[
             currentFloor === 1 ? '#020617' : '#030712',
-            currentFloor === 1 ? 14 : 8,
-            currentFloor === 1 ? 84 : 70,
+            currentFloor === 1 ? 12 : 6,
+            isMobile ? (currentFloor === 1 ? 52 : 40) : (currentFloor === 1 ? 84 : 70),
           ]}
         />
 

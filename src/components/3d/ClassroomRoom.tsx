@@ -255,77 +255,82 @@ export const ClassroomRoom = React.memo<ClassroomRoomProps>(({
 
       {/* ========================================================
           7. HIGH-PERFORMANCE LOW-POLY STUDENT DESKS & CHAIRS
-          (66% fewer draw calls for 60 FPS mobile performance!)
+          (Rendered only in rooms with exam desk on mobile)
           ======================================================== */}
-      {(isMobile ? [-2.4, 2.4] : [-2.4, 2.4]).map((colX, colIdx) =>
-        (isMobile ? [1.8] : [-0.5, 1.8, 4.0]).map((rowZ, rowIdx) => {
-          const isExamSpot = hasExamDesk && colIdx === 0 && (isMobile ? true : rowIdx === 1);
-          if (isExamSpot) return null;
+      {(!isMobile || hasExamDesk) &&
+        (isMobile ? [-2.4, 2.4] : [-2.4, 2.4]).map((colX, colIdx) =>
+          (isMobile ? [1.8] : [-0.5, 1.8, 4.0]).map((rowZ, rowIdx) => {
+            const isExamSpot = hasExamDesk && colIdx === 0 && (isMobile ? true : rowIdx === 1);
+            if (isExamSpot) return null;
 
-          return (
-            <group key={`s_desk_${colIdx}_${rowIdx}`} position={[colX, 0, rowZ]}>
-              {/* Desk Tabletop & Drawer */}
-              <mesh position={[0, 0.68, 0]}>
-                <boxGeometry args={[1.4, 0.16, 0.65]} />
-                <meshStandardMaterial color="#b45309" roughness={0.7} />
-              </mesh>
-              {/* Sturdy Side Leg Panels */}
-              <mesh position={[-0.62, 0.32, 0]}>
-                <boxGeometry args={[0.06, 0.64, 0.55]} />
-                <meshStandardMaterial color="#334155" metalness={0.7} />
-              </mesh>
-              <mesh position={[0.62, 0.32, 0]}>
-                <boxGeometry args={[0.06, 0.64, 0.55]} />
-                <meshStandardMaterial color="#334155" metalness={0.7} />
-              </mesh>
+            return (
+              <group key={`s_desk_${colIdx}_${rowIdx}`} position={[colX, 0, rowZ]}>
+                {/* Desk Tabletop & Drawer */}
+                <mesh position={[0, 0.68, 0]}>
+                  <boxGeometry args={[1.4, 0.16, 0.65]} />
+                  <meshStandardMaterial color="#b45309" roughness={0.7} />
+                </mesh>
+                {/* Sturdy Side Leg Panels */}
+                <mesh position={[-0.62, 0.32, 0]}>
+                  <boxGeometry args={[0.06, 0.64, 0.55]} />
+                  <meshStandardMaterial color="#334155" metalness={0.7} />
+                </mesh>
+                <mesh position={[0.62, 0.32, 0]}>
+                  <boxGeometry args={[0.06, 0.64, 0.55]} />
+                  <meshStandardMaterial color="#334155" metalness={0.7} />
+                </mesh>
 
-              {/* Student Chairs (1 on mobile, 2 on PC) */}
-              {(isMobile ? [0] : [-0.35, 0.35]).map((chairX, chairI) => (
-                <group key={`chair_${chairI}`} position={[chairX, 0, 0.62]}>
-                  {/* Seat & Legs */}
-                  <mesh position={[0, 0.42, 0]}>
-                    <boxGeometry args={[0.42, 0.04, 0.4]} />
-                    <meshStandardMaterial color="#78350f" roughness={0.8} />
-                  </mesh>
-                  {!isMobile && (
-                    <mesh position={[0, 0.21, 0]}>
-                      <boxGeometry args={[0.38, 0.42, 0.35]} />
-                      <meshStandardMaterial color="#1e293b" />
+                {/* Student Chairs (1 on mobile, 2 on PC) */}
+                {(isMobile ? [0] : [-0.35, 0.35]).map((chairX, chairI) => (
+                  <group key={`chair_${chairI}`} position={[chairX, 0, 0.62]}>
+                    {/* Seat & Legs */}
+                    <mesh position={[0, 0.42, 0]}>
+                      <boxGeometry args={[0.42, 0.04, 0.4]} />
+                      <meshStandardMaterial color="#78350f" roughness={0.8} />
                     </mesh>
-                  )}
-                  {/* Backrest */}
-                  <mesh position={[0, 0.72, 0.18]}>
-                    <boxGeometry args={[0.4, 0.24, 0.04]} />
-                    <meshStandardMaterial color="#78350f" roughness={0.8} />
-                  </mesh>
-                </group>
-              ))}
-            </group>
-          );
-        })
-      )}
+                    {!isMobile && (
+                      <mesh position={[0, 0.21, 0]}>
+                        <boxGeometry args={[0.38, 0.42, 0.35]} />
+                        <meshStandardMaterial color="#1e293b" />
+                      </mesh>
+                    )}
+                    {/* Backrest */}
+                    <mesh position={[0, 0.72, 0.18]}>
+                      <boxGeometry args={[0.4, 0.24, 0.04]} />
+                      <meshStandardMaterial color="#78350f" roughness={0.8} />
+                    </mesh>
+                  </group>
+                ))}
+              </group>
+            );
+          })
+        )}
 
       {/* ========================================================
-          8. BOOKSHELF & TRASH CAN
+          8. BOOKSHELF & TRASH CAN (Omitted on mobile in empty rooms)
           ======================================================== */}
-      <group position={[outerWallX + (isLeftSide ? 1.4 : -1.4), 0, halfD - 0.7]}>
-        <mesh position={[0, 1.45, 0]}>
-          <boxGeometry args={[2.0, 2.9, 0.65]} />
-          <meshStandardMaterial color="#78350f" roughness={0.7} />
-        </mesh>
-        {[0.6, 1.3, 2.1].map((sy, si) => (
-          <mesh key={`shelf_${si}`} position={[0, sy, 0.12]}>
-            <boxGeometry args={[1.8, 0.32, 0.5]} />
-            <meshStandardMaterial color={si % 2 === 0 ? '#1e3a8a' : '#14532d'} roughness={0.8} />
+      {(!isMobile || hasExamDesk) && (
+        <group position={[outerWallX + (isLeftSide ? 1.4 : -1.4), 0, halfD - 0.7]}>
+          <mesh position={[0, 1.45, 0]}>
+            <boxGeometry args={[2.0, 2.9, 0.65]} />
+            <meshStandardMaterial color="#78350f" roughness={0.7} />
           </mesh>
-        ))}
-      </group>
+          {[0.6, 1.3, 2.1].map((sy, si) => (
+            <mesh key={`shelf_${si}`} position={[0, sy, 0.12]}>
+              <boxGeometry args={[1.8, 0.32, 0.5]} />
+              <meshStandardMaterial color={si % 2 === 0 ? '#1e3a8a' : '#14532d'} roughness={0.8} />
+            </mesh>
+          ))}
+        </group>
+      )}
 
       {/* Trash Can */}
-      <mesh position={[corridorWallX + (isLeftSide ? -0.5 : 0.5), 0.28, doorZ + doorW / 2 + 0.6]}>
-        <cylinderGeometry args={[0.22, 0.18, 0.56, 8]} />
-        <meshStandardMaterial color="#0284c7" roughness={0.5} />
-      </mesh>
+      {!isMobile && (
+        <mesh position={[corridorWallX + (isLeftSide ? -0.5 : 0.5), 0.28, doorZ + doorW / 2 + 0.6]}>
+          <cylinderGeometry args={[0.22, 0.18, 0.56, 8]} />
+          <meshStandardMaterial color="#0284c7" roughness={0.5} />
+        </mesh>
+      )}
 
       {/* Render Active Exam Desk */}
       {examDeskElement}
