@@ -1,0 +1,10 @@
+import * as THREE from 'three';
+const cam = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+cam.rotation.set(-Math.PI / 2, 0, 0, 'YXZ');
+cam.updateMatrixWorld();
+const vUp = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+const vRight = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+const vForward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+console.log('Camera Up in World:', vUp);
+console.log('Camera Right in World:', vRight);
+console.log('Camera Forward in World:', vForward);

@@ -233,9 +233,9 @@ export const TouchControls: React.FC = () => {
 
   return (
     <div className="absolute inset-0 z-30 pointer-events-none select-none overflow-hidden touch-none">
-      {/* Right Screen: Touch-Drag Area for Horizontal Turning */}
+      {/* Right Screen: Touch-Drag Area for Horizontal Turning (Starts below top HUD bar to never block buttons) */}
       <div
-        className="absolute top-0 right-0 w-1/2 h-full pointer-events-auto touch-none"
+        className="absolute top-20 right-0 w-1/2 bottom-0 pointer-events-auto touch-none"
         onTouchStart={handleLookStart}
         onTouchMove={handleLookMove}
         onTouchEnd={handleLookEnd}
