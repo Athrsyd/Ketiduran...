@@ -7,6 +7,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
 import { requestGameFullscreen, exitGameFullscreen } from '../../utils/fullscreen';
+import { getMasterKeySpawn } from '../../data/floor1Spawns';
 import {
   Key,
   Flashlight,
@@ -31,6 +32,8 @@ export const HUD: React.FC = () => {
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
   const hasMasterKey = useGameStore((s) => s.hasMasterKey);
+  const masterKeySpawnIndex = useGameStore((s) => s.masterKeySpawnIndex);
+  const maxPlayers = useGameStore((s) => s.maxPlayers);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
   const nearbyInteractable = useGameStore((s) => s.nearbyInteractable);
   const flashlightOn = useGameStore((s) => s.flashlightOn);
@@ -164,7 +167,7 @@ export const HUD: React.FC = () => {
                 </div>
                 <div className="text-[11px] sm:text-xs text-slate-300 leading-snug">
                   {!hasMasterKey ? (
-                    'Cari Kunci Gerbang Utama di Pos Satpam halaman sekolah.'
+                    `Cari Kunci Gerbang Utama di ${getMasterKeySpawn(masterKeySpawnIndex, maxPlayers > 1).name} halaman sekolah.`
                   ) : !isExitGateUnlocked ? (
                     <span className="text-amber-300 font-semibold">
                       Bawa Kunci ke Gerbang Utama Sekolah di ujung halaman!

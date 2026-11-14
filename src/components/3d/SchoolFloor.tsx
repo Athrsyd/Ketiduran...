@@ -15,6 +15,7 @@ import { RobotSupervisor } from './RobotSupervisor';
 import { TeammateModel } from './TeammateModel';
 import { MultiplayerSchoolFloor } from './MultiplayerSchoolFloor';
 import { DemoTeammatesWanderer } from './DemoTeammatesWanderer';
+import { getMasterKeySpawn } from '../../data/floor1Spawns';
 
 export const SoloSchoolFloor: React.FC = () => {
   const currentFloor = useGameStore((s) => s.currentFloor);
@@ -24,6 +25,7 @@ export const SoloSchoolFloor: React.FC = () => {
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
   const hasMasterKey = useGameStore((s) => s.hasMasterKey);
+  const masterKeySpawnIndex = useGameStore((s) => s.masterKeySpawnIndex);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
   const nearbyQuestionId = useGameStore((s) => s.nearbyInteractable?.type === 'question' ? s.nearbyInteractable.id : null);
   const isStairKeyNearby = useGameStore((s) => s.nearbyInteractable?.type === 'stair_key');
@@ -423,7 +425,7 @@ export const SoloSchoolFloor: React.FC = () => {
           {/* School Yard Outdoor Ground (Halaman Sekolah Luas 96m x 96m, Z: -16 to -112) */}
           <mesh position={[0, 0, -64]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <planeGeometry args={[96, 96]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.9} />
+            <meshStandardMaterial color="#1e5429" roughness={0.85} />
           </mesh>
 
           {/* Yard Outer Perimeter Boundary Walls */}
@@ -587,10 +589,10 @@ export const SoloSchoolFloor: React.FC = () => {
             <pointLight position={[0, 2.4, 0]} color="#fef08a" intensity={2.0} distance={7} />
           </group>
 
-          {/* MASTER EXIT KEY IN POS SATPAM */}
+          {/* MASTER EXIT KEY DENGAN RANDOM LANDMARK SPAWN */}
           {!hasMasterKey && (
             <KeyItem
-              position={[-18, 0.9, -56]}
+              position={getMasterKeySpawn(masterKeySpawnIndex, false).position}
               isMasterKey={true}
               isNearby={isMasterKeyNearby}
             />

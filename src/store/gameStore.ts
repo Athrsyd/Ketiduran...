@@ -9,6 +9,7 @@ import { PAI_QUESTIONS } from '../data/questions';
 import { getFloorSpawnPosition } from '../utils/gameLogic';
 import { sound } from '../services/soundEngine';
 import { isMobileDevice } from '../utils/fullscreen';
+import { MASTER_KEY_SPAWNS } from '../data/floor1Spawns';
 
 export interface MapTransitionPopupData {
   show: boolean;
@@ -38,6 +39,7 @@ export interface GameState {
   hasStairKey: boolean;
   isGateUnlocked: boolean;
   hasMasterKey: boolean;
+  masterKeySpawnIndex: number;
   isExitGateUnlocked: boolean;
   robotState: RobotState;
   nearbyInteractable: {
@@ -97,6 +99,7 @@ export interface GameState {
   collectStairKey: (broadcast?: boolean) => void;
   unlockStairGate: (broadcast?: boolean) => void;
   collectMasterKey: (broadcast?: boolean) => void;
+  setMasterKeySpawnIndex: (index: number) => void;
   unlockExitGate: (broadcast?: boolean) => void;
   transitionToNextFloor: (nextFloor?: number, broadcast?: boolean) => void;
   setRobotState: (update: Partial<RobotState>) => void;
@@ -322,6 +325,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   hasStairKey: false,
   isGateUnlocked: false,
   hasMasterKey: false,
+  masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
+  setMasterKeySpawnIndex: (index: number) => set({ masterKeySpawnIndex: index }),
   isExitGateUnlocked: false,
   robotState: {
     x: 0,
@@ -403,6 +408,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasStairKey: false,
       isGateUnlocked: false,
       hasMasterKey: false,
+      masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
       gameOverReason: '',
       isMapViewer: false,
@@ -448,6 +454,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasStairKey: false,
       isGateUnlocked: false,
       hasMasterKey: false,
+      masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
       gameOverReason: '',
       isMapViewer: false,
@@ -488,6 +495,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasStairKey: false,
       isGateUnlocked: false,
       hasMasterKey: false,
+      masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
       gameOverReason: '',
       isMapViewer: false,
@@ -627,6 +635,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     sound.playGateUnlocked();
     const spawnPos = getFloorSpawnPosition(next);
     const info = getFloorTransitionInfo(next);
+    const nextSpawnIndex = next === 1 ? Math.floor(Math.random() * MASTER_KEY_SPAWNS.length) : get().masterKeySpawnIndex;
 
     set({
       currentFloor: next,
@@ -634,6 +643,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       myIsInGatheringZone: false,
       hasStairKey: false,
       isGateUnlocked: false,
+      masterKeySpawnIndex: nextSpawnIndex,
       activeQuestion: null,
       mapTransitionPopup: {
         show: true,
@@ -695,6 +705,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hasStairKey: false,
       isGateUnlocked: false,
       hasMasterKey: false,
+      masterKeySpawnIndex: Math.floor(Math.random() * MASTER_KEY_SPAWNS.length),
       isExitGateUnlocked: false,
       gameOverReason: '',
       mapTransitionPopup: {

@@ -13,6 +13,7 @@ import { KeyItem } from './KeyItem';
 import { StairGate } from './StairGate';
 import { RobotSupervisor } from './RobotSupervisor';
 import { TeammateModel } from './TeammateModel';
+import { getMasterKeySpawn } from '../../data/floor1Spawns';
 
 export const MultiplayerSchoolFloor: React.FC = () => {
   const currentFloor = useGameStore((s) => s.currentFloor);
@@ -20,6 +21,7 @@ export const MultiplayerSchoolFloor: React.FC = () => {
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
   const hasMasterKey = useGameStore((s) => s.hasMasterKey);
+  const masterKeySpawnIndex = useGameStore((s) => s.masterKeySpawnIndex);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
   const nearbyQuestionId = useGameStore((s) =>
     s.nearbyInteractable?.type === 'question' ? s.nearbyInteractable.id : null
@@ -952,7 +954,7 @@ export const MultiplayerSchoolFloor: React.FC = () => {
           {/* Grand School Yard Ground (140m x 140m, Z: -16 to -156, X: -70 to +70) */}
           <mesh position={[0, 0, -86]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <planeGeometry args={[140, 140]} />
-            <meshStandardMaterial color="#0b1329" roughness={0.95} />
+            <meshStandardMaterial color="#1e5429" roughness={0.85} />
           </mesh>
 
           {/* Perimeter Boundary Walls (Height 4.5m) */}
@@ -1184,10 +1186,10 @@ export const MultiplayerSchoolFloor: React.FC = () => {
             <pointLight position={[0, 3.0, 0]} color="#fef08a" intensity={2.5} distance={12} />
           </group>
 
-          {/* MASTER KEY IN POS SATPAM */}
+          {/* MASTER KEY DENGAN RANDOM LANDMARK SPAWN */}
           {!hasMasterKey && (
             <KeyItem
-              position={[-22, 0.95, -85]}
+              position={getMasterKeySpawn(masterKeySpawnIndex, true).position}
               isMasterKey={true}
               isNearby={isMasterKeyNearby}
             />

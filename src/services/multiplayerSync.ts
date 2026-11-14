@@ -339,6 +339,9 @@ class MultiplayerSyncService {
 
       case 'FLOOR_TRANSITION': {
         const nextFloor = msg.payload?.floor;
+        if (typeof msg.payload?.masterKeySpawnIndex === 'number') {
+          store.setMasterKeySpawnIndex(msg.payload.masterKeySpawnIndex);
+        }
         if (nextFloor && nextFloor !== store.currentFloor) {
           store.transitionToNextFloor(nextFloor, false);
         }

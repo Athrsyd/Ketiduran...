@@ -60,61 +60,62 @@ export const VictoryModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/80 backdrop-blur-md animate-in fade-in zoom-in duration-300">
-      <div className="relative w-full max-w-md bg-slate-950 border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-[0_0_60px_rgba(16,185,129,0.4)]">
-        {/* Trophy Icon */}
-        <div className="w-18 h-18 rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 mx-auto flex items-center justify-center shadow-lg animate-bounce">
-          <Trophy size={42} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-emerald-950/85 backdrop-blur-md animate-in fade-in zoom-in duration-300">
+      <div className="relative w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto bg-slate-950 border-2 border-emerald-500 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 text-center space-y-3 sm:space-y-4 shadow-[0_0_50px_rgba(16,185,129,0.35)] pointer-events-auto">
+        {/* Trophy Icon - Scaled for mobile */}
+        <div className="w-11 h-11 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-400 text-emerald-400 mx-auto flex items-center justify-center shadow-lg animate-bounce">
+          <Trophy size={24} className="sm:hidden" />
+          <Trophy size={36} className="hidden sm:block" />
         </div>
 
-        <div className="space-y-1.5">
-          <div className="text-xs uppercase font-bold tracking-widest text-emerald-400">
-            Misi Berhasil - Selamat!
+        <div className="space-y-1">
+          <div className="text-[10px] sm:text-xs uppercase font-bold tracking-widest text-emerald-400">
+            Misi Berhasil • Selamat!
           </div>
-          <h2 className="text-3xl font-black text-white font-mono">
+          <h2 className="text-lg sm:text-2xl font-black text-white font-mono leading-tight">
             TIM LOLOS & MENANG!
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
-            Kalian berhasil membuka semua gerbang lantai sekolah, menyelesaikan seluruh 15 teka-teki PAI Kelas 11 SMK, dan keluar melewati Gerbang Utama tanpa tertangkap!
+          <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-snug">
+            Kalian berhasil membuka semua gerbang lantai sekolah, menyelesaikan 15 soal PAI SMK, dan keluar melewati Gerbang Utama tanpa tertangkap!
           </p>
         </div>
 
-        {/* Stats card */}
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs sm:text-sm space-y-2.5">
+        {/* Stats card - Compact rows */}
+        <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-slate-900 border border-slate-800 text-[11px] sm:text-xs space-y-1.5 sm:space-y-2">
           <div className="flex items-center justify-between text-slate-300">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={16} className="text-emerald-400" />
-              <span>Total Soal PAI Terselesaikan:</span>
+              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+              <span>Soal PAI Terjawab:</span>
             </span>
             <span className="font-bold text-emerald-400">15 / 15 (100%)</span>
           </div>
 
           <div className="flex items-center justify-between text-slate-300">
             <span className="flex items-center gap-1.5">
-              <Award size={16} className="text-amber-400" />
-              <span>Predikat Kompetensi PAI:</span>
+              <Award size={14} className="text-amber-400 shrink-0" />
+              <span>Predikat:</span>
             </span>
             <span className="font-bold text-amber-300">Siswa Teladan Unggul</span>
           </div>
 
           {/* Supabase status indicator */}
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+          <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] sm:text-[11px]">
             <span className="text-slate-400 flex items-center gap-1">
-              <Cloud size={13} className="text-sky-400" />
-              <span>Supabase Database:</span>
+              <Cloud size={12} className="text-sky-400 shrink-0" />
+              <span>Database Cloud:</span>
             </span>
             <span className="font-bold text-emerald-400 flex items-center gap-1">
-              <Check size={12} />
-              <span>{savedStatus.isCloud ? 'Tersimpan di Cloud' : 'Tersimpan di Sinkron'}</span>
+              <Check size={11} />
+              <span>{savedStatus.isCloud ? 'Tersimpan Online' : 'Tersimpan Lokal'}</span>
             </span>
           </div>
         </div>
 
         <button
           onClick={handlePlayAgain}
-          className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 transition cursor-pointer"
+          className="w-full py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-1.5 sm:gap-2 transition cursor-pointer touch-manipulation"
         >
-          <RotateCcw size={18} />
+          <RotateCcw size={16} />
           <span>MAIN LAGI BERSAMA TEMAN</span>
         </button>
       </div>

@@ -50,17 +50,17 @@ export const GameCanvas: React.FC = () => {
         />
 
         {/* Ambient & Soft Sky Lighting */}
-        <ambientLight intensity={currentFloor === 1 ? 0.38 : 0.28} />
+        <ambientLight intensity={currentFloor === 1 ? 0.45 : 0.28} />
         <hemisphereLight
-          color="#93c5fd"
-          groundColor="#020617"
-          intensity={currentFloor === 1 ? 0.48 : 0.32}
+          color="#bae6fd"
+          groundColor={currentFloor === 1 ? '#14532d' : '#020617'}
+          intensity={currentFloor === 1 ? 0.65 : 0.32}
         />
 
         {/* Directional Moonlight */}
         <directionalLight
           position={currentFloor === 1 ? [24, 40, -10] : [0, 3.7, 0]}
-          intensity={currentFloor === 1 ? 0.45 : 0.15}
+          intensity={currentFloor === 1 ? 0.55 : 0.15}
           color="#93c5fd"
           castShadow={!isMobile && currentFloor === 1}
           shadow-mapSize-width={1024}

@@ -6,6 +6,7 @@
 import React, { useMemo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { PAI_QUESTIONS } from '../../data/questions';
+import { getMasterKeySpawn } from '../../data/floor1Spawns';
 import {
   Lightbulb,
   X,
@@ -27,6 +28,8 @@ export const HintModal: React.FC = () => {
   const hasStairKey = useGameStore((s) => s.hasStairKey);
   const isGateUnlocked = useGameStore((s) => s.isGateUnlocked);
   const hasMasterKey = useGameStore((s) => s.hasMasterKey);
+  const masterKeySpawnIndex = useGameStore((s) => s.masterKeySpawnIndex);
+  const maxPlayers = useGameStore((s) => s.maxPlayers);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
   const closeHint = useGameStore((s) => s.closeHint);
 
@@ -248,7 +251,7 @@ export const HintModal: React.FC = () => {
                   )}
                   <div className="space-y-1">
                     <div className="font-bold text-white flex items-center gap-2">
-                      <span>1. Cari Kunci Gerbang Utama di Pos Satpam</span>
+                      <span>1. Cari Kunci Gerbang Utama di {getMasterKeySpawn(masterKeySpawnIndex, maxPlayers > 1).name}</span>
                       {hasMasterKey && (
                         <span className="text-[11px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
                           Kunci Di Tangan
@@ -256,7 +259,7 @@ export const HintModal: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Pos Satpam terletak di sebelah barat (kiri) halaman sekolah dekat koordinat X = -18, Z = -56. Masuk ke dalam pos satpam dan ambil Kunci Emas di atas meja jaga.
+                      {getMasterKeySpawn(masterKeySpawnIndex, maxPlayers > 1).hint}
                     </p>
                   </div>
                 </div>

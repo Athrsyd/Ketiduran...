@@ -15,6 +15,7 @@ import {
   getFloorSpawnPosition,
 } from './gameLogic.ts';
 import { resolveMovement, getUpperFloorWalls, getMultiplayerFloorWalls } from './collision.ts';
+import { MASTER_KEY_SPAWNS, getMasterKeySpawn } from '../data/floor1Spawns.ts';
 
 describe('Game Pure Logic Tests', () => {
   test('validateMultipleChoice checks correct option', () => {
@@ -262,5 +263,20 @@ describe('Game Pure Logic Tests', () => {
       true,
       `Penetrated Floor 4 south wall: got Z = ${endZ}`
     );
+  });
+
+  test('Floor 1 Master Key Spawns has valid curated locations in map boundaries', () => {
+    assert.strictEqual(MASTER_KEY_SPAWNS.length >= 5, true);
+    for (let i = 0; i < MASTER_KEY_SPAWNS.length; i++) {
+      const multi = getMasterKeySpawn(i, true);
+      const solo = getMasterKeySpawn(i, false);
+      assert.ok(multi.name && multi.hint, `Spawn ${i} missing name or hint`);
+      // Multiplayer yard bounds: X in [-70, 70], Z in [-156, -16]
+      assert.strictEqual(multi.position[0] >= -68 && multi.position[0] <= 68, true);
+      assert.strictEqual(multi.position[2] >= -150 && multi.position[2] <= -20, true);
+      // Solo yard bounds: X in [-48, 48], Z in [-112, -16]
+      assert.strictEqual(solo.position[0] >= -45 && solo.position[0] <= 45, true);
+      assert.strictEqual(solo.position[2] >= -105 && solo.position[2] <= -20, true);
+    }
   });
 });

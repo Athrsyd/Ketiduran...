@@ -20,6 +20,7 @@ import {
 import { inputState } from '../../services/inputState';
 import { sound } from '../../services/soundEngine';
 import { multiplayerSync } from '../../services/multiplayerSync';
+import { getMasterKeySpawn } from '../../data/floor1Spawns';
 
 // Pre-allocated vectors for 0 garbage collection in useFrame
 const _moveDir = new THREE.Vector3();
@@ -500,8 +501,9 @@ export const PlayerController: React.FC = () => {
         }
       }
     } else {
-      // Floor 1: Check Master Key
-      const masterKeyPos = isMultiplayer ? [-22, -85] : [-18, -56];
+      // Floor 1: Check Master Key (Randomized Landmark Spawn)
+      const masterKeySpawn = getMasterKeySpawn(store.masterKeySpawnIndex, isMultiplayer);
+      const masterKeyPos = [masterKeySpawn.position[0], masterKeySpawn.position[2]];
       const exitGateZ = isMultiplayer ? -148 : -104;
 
       if (!store.hasMasterKey) {
@@ -510,7 +512,7 @@ export const PlayerController: React.FC = () => {
           minDist = mKeyDist;
           closestInteractable = {
             type: 'master_key',
-            label: 'Ambil Kunci Gerbang Utama',
+            label: `Ambil Kunci Gerbang Utama (${masterKeySpawn.name})`,
             distance: mKeyDist,
           };
         }
@@ -576,7 +578,10 @@ export const PlayerController: React.FC = () => {
             type: 'FLOOR_TRANSITION',
             senderId: store.myId,
             roomCode: store.roomCode,
-            payload: { floor: nextFloor },
+            payload: {
+              floor: nextFloor,
+              masterKeySpawnIndex: useGameStore.getState().masterKeySpawnIndex,
+            },
             timestamp: Date.now(),
           });
         } else if (store.currentFloor === 1 && store.isExitGateUnlocked) {
