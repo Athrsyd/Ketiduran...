@@ -221,7 +221,30 @@ export const PlayerController: React.FC = () => {
         });
         break;
       }
+      case 'revive_teammate': {
+        const targetId = nearby.targetTeammateId;
+        if (targetId) {
+          store.reviveTeammate(targetId);
+          multiplayerSync.send({
+            type: 'PLAYER_REVIVED',
+            senderId: store.myId,
+            roomCode: store.roomCode,
+            payload: { playerId: targetId },
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      }
       case 'exit_gate': {
+        const anyStunned = Object.values(store.teammates).some(
+          (tm) => tm.currentFloor === 1 && tm.isStunned
+        );
+        if (anyStunned) {
+          sound.playDoorLocked();
+          store.showTopRightToast('Tidak bisa kabur! Bantu temanmu yang ter-stun terlebih dahulu!');
+          return;
+        }
+
         if (store.hasMasterKey && !store.isExitGateUnlocked) {
           store.unlockExitGate();
           multiplayerSync.send({
@@ -241,8 +264,8 @@ export const PlayerController: React.FC = () => {
     const store = useGameStore.getState();
     if (store.status !== 'playing') return;
 
-    // Freeze player movement when solving question or reading hint
-    if (store.activeQuestion !== null || store.isHintOpen) return;
+    // Freeze player movement when solving question, reading hint, or when stunned!
+    if (store.activeQuestion !== null || store.isHintOpen || store.isStunned) return;
 
     // Handle Teleport Target from Map Viewer
     if (store.teleportTarget) {
@@ -518,14 +541,38 @@ export const PlayerController: React.FC = () => {
         }
       }
 
+      // Floor 1: Check nearby stunned teammates to revive
+      if (!store.isStunned) {
+        for (const tm of Object.values(store.teammates)) {
+          if (tm.currentFloor === 1 && tm.isStunned) {
+            const tmDist = Math.hypot(currentPos.x - tm.position[0], currentPos.z - tm.position[2]);
+            if (tmDist < 2.8 && tmDist < minDist) {
+              minDist = tmDist;
+              closestInteractable = {
+                type: 'revive_teammate',
+                id: tm.id,
+                targetTeammateId: tm.id,
+                label: `Bantu & Bangkitkan ${tm.name}`,
+                distance: tmDist,
+              };
+            }
+          }
+        }
+      }
+
       // Floor 1: Check Exit Gate
       if (store.hasMasterKey && !store.isExitGateUnlocked) {
+        const anyStunned = Object.values(store.teammates).some(
+          (tm) => tm.currentFloor === 1 && tm.isStunned
+        );
         const eGateDist = Math.hypot(currentPos.x - 0, currentPos.z - exitGateZ);
         if (eGateDist < 4.2 && eGateDist < minDist) {
           minDist = eGateDist;
           closestInteractable = {
             type: 'exit_gate',
-            label: 'Buka Gerbang Keluar Sekolah',
+            label: anyStunned
+              ? 'Bantu Teman Ter-Stun Sebelum Kabur!'
+              : 'Buka Gerbang Keluar Sekolah',
             distance: eGateDist,
           };
         }
@@ -585,6 +632,13 @@ export const PlayerController: React.FC = () => {
             timestamp: Date.now(),
           });
         } else if (store.currentFloor === 1 && store.isExitGateUnlocked) {
+          const anyStunned = Object.values(store.teammates).some(
+            (tm) => tm.currentFloor === 1 && tm.isStunned
+          );
+          if (anyStunned) {
+            store.showTopRightToast('Tidak bisa kabur! Bantu temanmu yang ter-stun terlebih dahulu!');
+            return;
+          }
           store.triggerVictory();
           multiplayerSync.send({
             type: 'VICTORY',

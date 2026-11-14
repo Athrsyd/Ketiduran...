@@ -20,6 +20,9 @@ import {
   Minimize,
   Gauge,
   Lightbulb,
+  AlertTriangle,
+  Zap,
+  Radio,
 } from 'lucide-react';
 
 export const HUD: React.FC = () => {
@@ -35,6 +38,9 @@ export const HUD: React.FC = () => {
   const masterKeySpawnIndex = useGameStore((s) => s.masterKeySpawnIndex);
   const maxPlayers = useGameStore((s) => s.maxPlayers);
   const isExitGateUnlocked = useGameStore((s) => s.isExitGateUnlocked);
+  const isStunned = useGameStore((s) => s.isStunned);
+  const topRightToast = useGameStore((s) => s.topRightToast);
+  const clearTopRightToast = useGameStore((s) => s.clearTopRightToast);
   const nearbyInteractable = useGameStore((s) => s.nearbyInteractable);
   const flashlightOn = useGameStore((s) => s.flashlightOn);
   const toggleFlashlight = useGameStore((s) => s.toggleFlashlight);
@@ -48,6 +54,15 @@ export const HUD: React.FC = () => {
   const robotState = useGameStore((s) => s.robotState);
 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Auto-dismiss top-right toast notification
+  useEffect(() => {
+    if (!topRightToast) return;
+    const timer = setTimeout(() => {
+      clearTopRightToast();
+    }, 3800);
+    return () => clearTimeout(timer);
+  }, [topRightToast, clearTopRightToast]);
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -178,9 +193,21 @@ export const HUD: React.FC = () => {
                     </span>
                   )}
                 </div>
-                {robotState.isChasing && (
-                  <div className="text-[11px] font-bold text-rose-400 animate-pulse flex items-center gap-1">
+                {/* Robot Status Display */}
+                {robotState.isRecharging ? (
+                  <div className="text-[11px] font-bold text-amber-300 animate-pulse flex items-center gap-1.5 bg-amber-500/20 px-2.5 py-1 rounded-xl border border-amber-400/40">
+                    <Zap size={14} className="text-amber-400 shrink-0" />
+                    <span>⚡ ROBOT MENGISI DAYA ({robotState.rechargeSecondsLeft ?? 3}s) • AMAN TOLONG TEMAN!</span>
+                  </div>
+                ) : robotState.isChasing ? (
+                  <div className="text-[11px] font-bold text-rose-400 animate-pulse flex items-center gap-1.5 bg-rose-500/20 px-2.5 py-1 rounded-xl border border-rose-400/40">
+                    <ShieldAlert size={14} className="text-rose-400 shrink-0" />
                     <span>⚠ WASPADA: ROBOT PENGAWAS MENGEJAR!</span>
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-sky-300/80 flex items-center gap-1.5 bg-slate-900/40 px-2 py-0.5 rounded-lg border border-slate-700/40">
+                    <Radio size={12} className="text-sky-400 shrink-0" />
+                    <span>Status Robot: Patroli Keliling Halaman</span>
                   </div>
                 )}
               </div>
@@ -339,15 +366,40 @@ export const HUD: React.FC = () => {
           {Object.values(teammates).map((tm) => (
             <span
               key={tm.id}
-              className="px-2 py-0.5 rounded-md font-medium text-slate-300 flex items-center gap-1 shrink-0"
-              style={{ borderLeft: `3px solid ${tm.color || '#f43f5e'}` }}
+              className={`px-2 py-0.5 rounded-md font-medium flex items-center gap-1 shrink-0 ${
+                tm.isStunned ? 'bg-rose-950/80 text-rose-300 animate-pulse' : 'text-slate-300'
+              }`}
+              style={{ borderLeft: `3px solid ${tm.isStunned ? '#ef4444' : (tm.color || '#f43f5e')}` }}
             >
               <span>{tm.name}</span>
+              {tm.isStunned && <span className="text-[10px] text-amber-300 font-bold">⚡ STUN</span>}
               {tm.isInGatheringZone && <span className="text-[10px] text-emerald-400">★</span>}
             </span>
           ))}
         </div>
       </div>
+
+      {/* Top-Right Notification Toast (e.g. Cannot escape while teammates are stunned) */}
+      {topRightToast && (
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-3 duration-200 pointer-events-auto">
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl bg-rose-950/95 border-2 border-rose-500 shadow-2xl shadow-rose-950/80 text-white max-w-xs sm:max-w-sm backdrop-blur-md">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0 animate-bounce" />
+            <span className="text-xs font-bold leading-snug">{topRightToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Local Player Stunned Overlay Banner */}
+      {isStunned && (
+        <div className="fixed inset-x-0 bottom-24 sm:bottom-28 z-40 flex justify-center pointer-events-none px-4 animate-in fade-in zoom-in duration-200">
+          <div className="flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl bg-rose-950/95 border-2 border-rose-500 shadow-2xl text-white animate-pulse">
+            <Zap size={18} className="text-amber-400 shrink-0" />
+            <span className="text-xs sm:text-sm font-black font-mono tracking-wide">
+              KAMU TER-STUN! Tunggu temanmu datang menolong...
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

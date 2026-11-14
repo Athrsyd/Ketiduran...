@@ -28,8 +28,11 @@ export const TeammateModel: React.FC<TeammateModelProps> = ({ player }) => {
     const g = groupRef.current;
 
     // Smoothly interpolate position towards target at 60 FPS
+    const targetRotX = player.isStunned ? Math.PI / 2.3 : 0;
+    const targetPosY = (player.position[1] - 1.6) + (player.isStunned ? 0.25 : 0);
+    g.rotation.x = THREE.MathUtils.damp(g.rotation.x, targetRotX, 10, delta);
     g.position.x = THREE.MathUtils.damp(g.position.x, player.position[0], 12, delta);
-    g.position.y = THREE.MathUtils.damp(g.position.y, player.position[1] - 1.6, 12, delta); // ground offset
+    g.position.y = THREE.MathUtils.damp(g.position.y, targetPosY, 12, delta); // ground offset
     g.position.z = THREE.MathUtils.damp(g.position.z, player.position[2], 12, delta);
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, player.yaw, 12, delta);
 
@@ -334,36 +337,75 @@ export const TeammateModel: React.FC<TeammateModelProps> = ({ player }) => {
       {/* ========================================================
           5. BILLBOARD NAMETAG & BEACON (ALWAYS FACES CAMERA)
           ======================================================== */}
-      <Billboard position={[0, 2.22, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
-        {/* Floating Glowing Diamond Beacon above head */}
-        <mesh position={[0, 0.32, 0]} rotation={[0, 0, Math.PI / 4]}>
-          <boxGeometry args={[0.1, 0.1, 0.1]} />
-          <meshBasicMaterial color={accentColor} />
-        </mesh>
+      <Billboard position={[0, player.isStunned ? 1.4 : 2.22, 0]} follow={true} lockX={false} lockY={false} lockZ={false}>
+        {player.isStunned ? (
+          <>
+            {/* Pulsing Stun Warning Diamond */}
+            <mesh position={[0, 0.36, 0]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.16, 0.16, 0.16]} />
+              <meshBasicMaterial color="#ef4444" />
+            </mesh>
+            <mesh position={[0, 0.0, 0]}>
+              <planeGeometry args={[1.8, 0.44]} />
+              <meshBasicMaterial color="#450a0a" transparent opacity={0.92} />
+            </mesh>
+            <mesh position={[0, -0.19, 0.005]}>
+              <planeGeometry args={[1.72, 0.04]} />
+              <meshBasicMaterial color="#ef4444" />
+            </mesh>
+            <Text
+              position={[0, 0.09, 0.01]}
+              fontSize={0.14}
+              color="#fecaca"
+              anchorX="center"
+              anchorY="middle"
+              maxWidth={1.7}
+            >
+              {displayName}
+            </Text>
+            <Text
+              position={[0, -0.08, 0.01]}
+              fontSize={0.11}
+              color="#fde047"
+              anchorX="center"
+              anchorY="middle"
+            >
+              ⚡ TER-STUN (BANTU E)
+            </Text>
+          </>
+        ) : (
+          <>
+            {/* Floating Glowing Diamond Beacon above head */}
+            <mesh position={[0, 0.32, 0]} rotation={[0, 0, Math.PI / 4]}>
+              <boxGeometry args={[0.1, 0.1, 0.1]} />
+              <meshBasicMaterial color={accentColor} />
+            </mesh>
 
-        {/* Nametag Background Badge */}
-        <mesh position={[0, 0, 0]}>
-          <planeGeometry args={[1.5, 0.36]} />
-          <meshBasicMaterial color="#020617" transparent opacity={0.88} />
-        </mesh>
+            {/* Nametag Background Badge */}
+            <mesh position={[0, 0, 0]}>
+              <planeGeometry args={[1.5, 0.36]} />
+              <meshBasicMaterial color="#020617" transparent opacity={0.88} />
+            </mesh>
 
-        {/* Accent Color Bottom Bar */}
-        <mesh position={[0, -0.15, 0.005]}>
-          <planeGeometry args={[1.42, 0.04]} />
-          <meshBasicMaterial color={accentColor} />
-        </mesh>
+            {/* Accent Color Bottom Bar */}
+            <mesh position={[0, -0.15, 0.005]}>
+              <planeGeometry args={[1.42, 0.04]} />
+              <meshBasicMaterial color={accentColor} />
+            </mesh>
 
-        {/* 3D Student Display Name */}
-        <Text
-          position={[0, 0.03, 0.01]}
-          fontSize={0.16}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-          maxWidth={1.4}
-        >
-          {displayName}
-        </Text>
+            {/* 3D Student Display Name */}
+            <Text
+              position={[0, 0.03, 0.01]}
+              fontSize={0.16}
+              color="#ffffff"
+              anchorX="center"
+              anchorY="middle"
+              maxWidth={1.4}
+            >
+              {displayName}
+            </Text>
+          </>
+        )}
       </Billboard>
     </group>
   );

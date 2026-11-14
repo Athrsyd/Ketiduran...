@@ -13,6 +13,8 @@ import {
   isPointInZone,
   checkAllPlayersInGatheringZone,
   getFloorSpawnPosition,
+  canTeamEscape,
+  isTeamWiped,
 } from './gameLogic.ts';
 import { resolveMovement, getUpperFloorWalls, getMultiplayerFloorWalls } from './collision.ts';
 import { MASTER_KEY_SPAWNS, getMasterKeySpawn } from '../data/floor1Spawns.ts';
@@ -278,5 +280,45 @@ describe('Game Pure Logic Tests', () => {
       assert.strictEqual(solo.position[0] >= -45 && solo.position[0] <= 45, true);
       assert.strictEqual(solo.position[2] >= -105 && solo.position[2] <= -20, true);
     }
+  });
+
+  test('canTeamEscape prevents escaping if any teammate is stunned', () => {
+    // No stunned teammates -> can escape
+    assert.strictEqual(canTeamEscape([{ currentFloor: 1, isStunned: false }]), true);
+    assert.strictEqual(canTeamEscape([]), true);
+
+    // Teammate on another floor stunned -> does not block Floor 1
+    assert.strictEqual(canTeamEscape([{ currentFloor: 2, isStunned: true }]), true);
+
+    // Teammate on Floor 1 stunned -> BLOCKS ESCAPE
+    assert.strictEqual(canTeamEscape([{ currentFloor: 1, isStunned: true }]), false);
+    assert.strictEqual(
+      canTeamEscape([
+        { currentFloor: 1, isStunned: false },
+        { currentFloor: 1, isStunned: true },
+      ]),
+      false
+    );
+  });
+
+  test('isTeamWiped requires all players to be stunned for game over', () => {
+    // If local player is NOT stunned -> NOT wiped
+    assert.strictEqual(isTeamWiped(false, [{ isStunned: true }]), false);
+    assert.strictEqual(isTeamWiped(false, [{ isStunned: false }]), false);
+
+    // If local player IS stunned, but 1 teammate is active -> NOT wiped
+    assert.strictEqual(isTeamWiped(true, [{ isStunned: false }]), false);
+    assert.strictEqual(
+      isTeamWiped(true, [{ isStunned: true }, { isStunned: false }]),
+      false
+    );
+
+    // If local player IS stunned AND all teammates are stunned -> WIPED!
+    assert.strictEqual(isTeamWiped(true, [{ isStunned: true }]), true);
+    assert.strictEqual(
+      isTeamWiped(true, [{ isStunned: true }, { isStunned: true }]),
+      true
+    );
+    assert.strictEqual(isTeamWiped(true, []), true);
   });
 });

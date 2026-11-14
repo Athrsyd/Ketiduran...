@@ -9,7 +9,8 @@ import { PAI_QUESTIONS } from '../../data/questions';
 import { multiplayerSync } from '../../services/multiplayerSync';
 import { requestGameFullscreen, exitGameFullscreen } from '../../utils/fullscreen';
 import { inputState } from '../../services/inputState';
-import { Key, DoorOpen, HelpCircle, Maximize, Minimize } from 'lucide-react';
+import { sound } from '../../services/soundEngine';
+import { Key, DoorOpen, HelpCircle, Maximize, Minimize, Zap } from 'lucide-react';
 
 export const TouchControls: React.FC = () => {
   const activeQuestion = useGameStore((s) => s.activeQuestion);
@@ -215,7 +216,29 @@ export const TouchControls: React.FC = () => {
         });
         break;
       }
+      case 'revive_teammate': {
+        if (nearbyInteractable.targetTeammateId) {
+          useGameStore.getState().reviveTeammate(nearbyInteractable.targetTeammateId);
+          multiplayerSync.send({
+            type: 'PLAYER_REVIVED',
+            senderId: myId,
+            roomCode,
+            payload: { playerId: nearbyInteractable.targetTeammateId },
+            timestamp: Date.now(),
+          });
+        }
+        break;
+      }
       case 'exit_gate': {
+        const anyStunned = Object.values(useGameStore.getState().teammates).some(
+          (tm) => tm.currentFloor === 1 && tm.isStunned
+        );
+        if (anyStunned) {
+          sound.playDoorLocked();
+          useGameStore.getState().showTopRightToast('Tidak bisa kabur! Bantu temanmu yang ter-stun terlebih dahulu!');
+          return;
+        }
+
         if (hasMasterKey && !isExitGateUnlocked) {
           unlockExitGate();
           multiplayerSync.send({
@@ -285,8 +308,9 @@ export const TouchControls: React.FC = () => {
               nearbyInteractable.type === 'master_key') && <Key size={28} />}
             {(nearbyInteractable.type === 'stair_gate' ||
               nearbyInteractable.type === 'exit_gate') && <DoorOpen size={28} />}
+            {nearbyInteractable.type === 'revive_teammate' && <Zap size={28} className="text-slate-950 animate-pulse" />}
             <span className="text-[10px] uppercase font-bold leading-none text-center px-1">
-              Aksi
+              {nearbyInteractable.type === 'revive_teammate' ? 'Bantu' : 'Aksi'}
             </span>
           </button>
         </div>

@@ -38,6 +38,9 @@ export const RobotSupervisor: React.FC = () => {
     speed: 3.4,
     chaseSpeed: 5.6,
     isChasing: false,
+    isRecharging: false,
+    rechargeTimer: 0,
+    lastRechargeSec: 0,
     lastAlarmTime: 0,
     syncThrottle: 0,
   });
@@ -52,16 +55,72 @@ export const RobotSupervisor: React.FC = () => {
     const s = stateRef.current;
     const robotPos = group.position;
 
-    // 1. Gather all player positions on Floor 1
+    // --- RECHARGING STATE (3 SECONDS AFTER CATCHING A PLAYER) ---
+    if (s.isRecharging) {
+      s.rechargeTimer -= delta;
+      const secLeft = Math.max(0, Math.ceil(s.rechargeTimer));
+      if (s.lastRechargeSec !== secLeft) {
+        s.lastRechargeSec = secLeft;
+        store.setRobotState({ isChasing: false, isRecharging: true, rechargeSecondsLeft: secLeft });
+      }
+
+      // Visuals during recharge: amber/cyan electrical pulse
+      if (eyeLeftRef.current && eyeRightRef.current) {
+        const flicker = Math.sin(Date.now() * 0.03) > 0 ? '#f59e0b' : '#38bdf8';
+        (eyeLeftRef.current.material as THREE.MeshBasicMaterial).color.set(flicker);
+        (eyeRightRef.current.material as THREE.MeshBasicMaterial).color.set(flicker);
+      }
+      if (spotlightRef.current) {
+        spotlightRef.current.color.set('#f59e0b');
+        spotlightRef.current.intensity = 2.0 + Math.sin(Date.now() * 0.02) * 1.5;
+      }
+
+      if (s.rechargeTimer <= 0) {
+        // 3 seconds elapsed: Robot recharges complete and respawns at a random patrol waypoint!
+        s.isRecharging = false;
+        const randomWpIndex = Math.floor(Math.random() * PATROL_WAYPOINTS.length);
+        s.currentWaypointIndex = randomWpIndex;
+        const [randX, randZ] = PATROL_WAYPOINTS[randomWpIndex];
+        robotPos.x = randX;
+        robotPos.z = randZ;
+
+        store.setRobotState({
+          x: randX,
+          z: randZ,
+          isChasing: false,
+          isRecharging: false,
+          rechargeSecondsLeft: 0,
+        });
+
+        multiplayerSync.send({
+          type: 'ROBOT_STATE',
+          senderId: store.myId,
+          roomCode: store.roomCode,
+          payload: {
+            x: randX,
+            z: randZ,
+            isChasing: false,
+            isRecharging: false,
+            rechargeSecondsLeft: 0,
+          },
+          timestamp: Date.now(),
+        });
+      }
+      return; // Do not move or chase while charging!
+    }
+
+    // 1. Gather all ACTIVE player positions on Floor 1 (ignoring already stunned players)
     const players: { id: string; x: number; z: number }[] = [];
-    players.push({
-      id: store.myId,
-      x: store.myPosition[0],
-      z: store.myPosition[2],
-    });
+    if (!store.isStunned) {
+      players.push({
+        id: store.myId,
+        x: store.myPosition[0],
+        z: store.myPosition[2],
+      });
+    }
 
     Object.values(store.teammates).forEach((tm) => {
-      if (tm.currentFloor === 1) {
+      if (tm.currentFloor === 1 && !tm.isStunned) {
         players.push({
           id: tm.id,
           x: tm.position[0],
@@ -70,7 +129,7 @@ export const RobotSupervisor: React.FC = () => {
       }
     });
 
-    // 2. Find nearest player
+    // 2. Find nearest active player
     let nearestPlayer: { id: string; x: number; z: number } | null = null;
     let minDistance = Infinity;
 
@@ -84,15 +143,76 @@ export const RobotSupervisor: React.FC = () => {
       }
     }
 
-    // 3. Catch check! If distance < 1.35 and not in map viewer -> GAME OVER
-    if (minDistance < 1.35 && !store.isMapViewer) {
-      sound.setRobotAlarm(false);
-      store.triggerGameOver('Siswa tertangkap oleh Robot Pengawas Sekolah!');
+    // 3. Catch check! If distance < 1.35 and not in map viewer
+    if (minDistance < 1.35 && !store.isMapViewer && nearestPlayer) {
+      const isMultiplayer = store.maxPlayers > 1 || Object.keys(store.teammates).length > 0;
+
+      if (!isMultiplayer) {
+        // Solo mode: immediate Game Over
+        sound.setRobotAlarm(false);
+        store.triggerGameOver('Siswa tertangkap oleh Robot Pengawas Sekolah!');
+        return;
+      }
+
+      // Multiplayer mode: Stun caught player!
+      if (nearestPlayer.id === store.myId) {
+        store.stunLocalPlayer();
+      } else {
+        store.stunTeammate(nearestPlayer.id);
+      }
+
       multiplayerSync.send({
-        type: 'GAME_OVER',
+        type: 'PLAYER_STUNNED',
         senderId: store.myId,
         roomCode: store.roomCode,
-        payload: { reason: 'Siswa tertangkap oleh Robot Pengawas Sekolah!' },
+        payload: { playerId: nearestPlayer.id },
+        timestamp: Date.now(),
+      });
+
+      // Check if ALL players on Floor 1 are now stunned
+      const myStunned = (nearestPlayer.id === store.myId) ? true : store.isStunned;
+      const teammatesOnFloor = Object.values(store.teammates).filter((tm) => tm.currentFloor === 1);
+      const allTeammatesStunned = teammatesOnFloor.every((tm) =>
+        tm.id === nearestPlayer.id ? true : !!tm.isStunned
+      );
+      const allStunned = myStunned && (teammatesOnFloor.length === 0 || allTeammatesStunned);
+
+      if (allStunned) {
+        // Everyone is down -> Full Game Over!
+        sound.setRobotAlarm(false);
+        store.triggerGameOver('Seluruh anggota tim tertangkap oleh Robot Pengawas!');
+        multiplayerSync.send({
+          type: 'GAME_OVER',
+          senderId: store.myId,
+          roomCode: store.roomCode,
+          payload: { reason: 'Seluruh anggota tim tertangkap oleh Robot Pengawas!' },
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      // Someone is still active! Robot recharges for 3 seconds then spawns randomly
+      s.isRecharging = true;
+      s.rechargeTimer = 3.0;
+      s.lastRechargeSec = 3;
+      s.isChasing = false;
+      sound.setRobotAlarm(false);
+
+      store.setRobotState({
+        isChasing: false,
+        isRecharging: true,
+        rechargeSecondsLeft: 3,
+      });
+
+      multiplayerSync.send({
+        type: 'ROBOT_STATE',
+        senderId: store.myId,
+        roomCode: store.roomCode,
+        payload: {
+          isChasing: false,
+          isRecharging: true,
+          rechargeSecondsLeft: 3,
+        },
         timestamp: Date.now(),
       });
       return;

@@ -74,3 +74,16 @@ export function getFloorSpawnPosition(floor: number): [number, number, number] {
       return [0, 1.6, 10.0];
   }
 }
+
+export function canTeamEscape(teammates: { currentFloor: number; isStunned?: boolean }[]): boolean {
+  return !teammates.some((tm) => tm.currentFloor === 1 && tm.isStunned);
+}
+
+export function isTeamWiped(
+  myStunned: boolean,
+  teammatesOnFloor: { isStunned?: boolean }[]
+): boolean {
+  if (!myStunned) return false;
+  if (teammatesOnFloor.length === 0) return true;
+  return teammatesOnFloor.every((tm) => !!tm.isStunned);
+}
